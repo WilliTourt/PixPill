@@ -1,0 +1,95 @@
+version: "4.1"
+name: PixPill
+type: ARM
+deviceName: null
+packDir: null
+srcDirs:
+  - Core
+  - Drivers
+  - Components
+virtualFolder:
+  name: <virtual_root>
+  files:
+    - path: .clang-format
+    - path: .gitignore
+    - path: .mxproject
+    - path: Makefile
+    - path: PixPill.ioc
+    - path: startup_stm32c011xx.s
+    - path: STM32C011XX_FLASH.ld
+  folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 4d36c51cbb72cc5a93183d1c188c8289
+targets:
+  Debug:
+    cppPreprocessAttrs:
+      defineList:
+        - STM32C011xx
+      incList:
+        - Core/Inc
+        - Drivers/CMSIS/Include
+        - Drivers/CMSIS/Device/ST/STM32C0xx/Include
+        - Drivers/STM32C0xx_HAL_Driver/Inc
+        - Components/Inc
+      libList: []
+    excludeList: []
+    settings: {}
+    toolchain: GCC
+    toolchainConfigMap:
+      GCC:
+        archExtensions: ""
+        cpuType: Cortex-M0+
+        floatingPointHardware: none
+        options:
+          version: 5
+          afterBuildTasks: []
+          asm-compiler: {}
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            language-c: c11
+            language-cpp: c++20
+            one-elf-section-per-data: true
+            one-elf-section-per-function: true
+            optimization: level-debug
+            warnings: all-warnings
+          global:
+            $float-abi-type: hard
+            arm-thumb-mode: thumb
+            not-use-syscalls: true
+            output-debug-info: enable
+            use-newlib-nano: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            $toolName: auto
+            LIB_FLAGS: -lm
+            output-format: elf
+            remove-unused-input-sections: true
+        scatterFilePath: STM32C011XX_FLASH.ld
+        storageLayout:
+          RAM: []
+          ROM: []
+        useCustomScatterFile: true
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      STLink:
+        address: "0x08000000"
+        bin: ""
+        elFile: None
+        optionBytes: .eide/debug.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
+    uploader: STLink
