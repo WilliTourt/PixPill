@@ -120,6 +120,7 @@ class IS31FL3736 {
 
         /* ---- PWM (PG1) — 0-255 per LED ---- */
         bool setPWM(uint8_t cs, uint8_t sw, uint8_t val);
+        bool setPWMAll(uint8_t val);
 
         /* ---- Breath mode (PG2) ---- */
         bool setBreathMode(uint8_t cs, uint8_t sw, uint8_t mode);  // 0=PWM, 1/2/3=ABM

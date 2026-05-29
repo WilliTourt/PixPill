@@ -159,13 +159,13 @@ bool IS31FL3736::ledOnAll(uint8_t gcc) {
         ret &= _write_reg(i, 0x55);
     }
 
-    if (!_select_page(IS31_PAGE_PWM)) return false;
-    for (uint8_t sw = 1; sw <= IS31_SW_COUNT; sw++) {
-        for (uint8_t cs = 1; cs <= IS31_CS_COUNT; cs++) {
-            uint8_t addr = (sw - 1) * 16 + (cs - 1) * 2;
-            ret &= _write_reg(addr, 0xFF);
-        }
-    }
+    // if (!_select_page(IS31_PAGE_PWM)) return false;
+    // for (uint8_t sw = 1; sw <= IS31_SW_COUNT; sw++) {
+    //     for (uint8_t cs = 1; cs <= IS31_CS_COUNT; cs++) {
+    //         uint8_t addr = (sw - 1) * 16 + (cs - 1) * 2;
+    //         ret &= _write_reg(addr, 0xFF);
+    //     }
+    // }
 
     return ret;
 }
@@ -179,13 +179,13 @@ bool IS31FL3736::ledOffAll() {
         ret &= _write_reg(i, 0x00);
     }
 
-    if (!_select_page(IS31_PAGE_PWM)) return false;
-    for (uint8_t sw = 1; sw <= IS31_SW_COUNT; sw++) {
-        for (uint8_t cs = 1; cs <= IS31_CS_COUNT; cs++) {
-            uint8_t addr = (sw - 1) * 16 + (cs - 1) * 2;
-            ret &= _write_reg(addr, 0x00);
-        }
-    }
+    // if (!_select_page(IS31_PAGE_PWM)) return false;
+    // for (uint8_t sw = 1; sw <= IS31_SW_COUNT; sw++) {
+    //     for (uint8_t cs = 1; cs <= IS31_CS_COUNT; cs++) {
+    //         uint8_t addr = (sw - 1) * 16 + (cs - 1) * 2;
+    //         ret &= _write_reg(addr, 0x00);
+    //     }
+    // }
 
     return ret;
 }
@@ -198,6 +198,17 @@ bool IS31FL3736::setPWM(uint8_t cs, uint8_t sw, uint8_t val) {
 
     if (!_select_page(IS31_PAGE_PWM)) return false;
     return _write_reg(_pwm_addr(cs, sw), val);
+}
+
+bool IS31FL3736::setPWMAll(uint8_t val) {
+    if (!_select_page(IS31_PAGE_PWM)) return false;
+    for (uint8_t sw = 1; sw <= 12; sw++) {
+        for (uint8_t cs = 1; cs <= 8; cs++) {
+            if (!_write_reg((sw-1)*16 + (cs-1)*2, val)) return false;
+        }
+    }
+
+    return true;
 }
 
 /* ============================================================
