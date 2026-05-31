@@ -12,17 +12,15 @@ ElegantDebug debug(&huart2, true, true, true);
 
 SandSim sand(accel, is31);
 
-int8_t constrain(int16_t value, int16_t min, int16_t max) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
+int16_t abs(int16_t value) {
+    return (value < 0) ? -value : value;
 }
 
-uint16_t rand(int32_t seed) {
-    seed = (seed * 114 + 514) % 1000000;
-    seed = (0xDEADBEEF / seed) * 7 + 12345;
-    return (uint16_t)(seed % 65536);
-}
+// uint16_t rand(int32_t seed) {
+//     seed = (seed * 114 + 514) % 1000000;
+//     seed = (0xDEADBEEF / seed) * 7 + 12345;
+//     return (uint16_t)(seed % 65536);
+// }
 
 void cpp_main() {
 
@@ -37,7 +35,7 @@ void cpp_main() {
     if (is31.begin(0x39)) {
         debug.success("IS31FL3736 LED driver initialized.\r\n");
         is31.setPWMAll(0xFF);
-        
+
         debug.info("Testing IS31FL3736 by setting all LEDs on. GCC = 0x20... \r\n");
         is31.ledOnAll(0x20);
         HAL_Delay(1000);
@@ -53,8 +51,16 @@ void cpp_main() {
     sand.start();
 
     while (1) {
+        accel.update();
+        uint16_t tilt = abs(accel.readAx()) + abs(accel.readAy());
+        uint16_t delay_ms = 100000 / (tilt + 500);
+        debug.info("Tilt: %d, Delay: %d ms\r\n", tilt, delay_ms);
+        if (delay_ms > 200) delay_ms = 200;
+        if (delay_ms < 20)  delay_ms = 20;
         sand.calc();
         sand.draw();
-        HAL_Delay(5);
+        HAL_Delay(delay_ms);
     }
 }
+
+

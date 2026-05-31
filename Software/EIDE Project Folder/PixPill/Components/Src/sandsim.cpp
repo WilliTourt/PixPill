@@ -44,7 +44,7 @@ SandSim::Status SandSim::calc() {
 
     // BMA530 Orientation: X+ → row0(top)   Y+ → col0(left)   Z+ → Ax(Vector)*Ay(Vector) (up)
     int16_t ax, ay;
-    _accel.update();
+    Status status = _accel.update() ? Status::OK : Status::ERR_ACCEL;
     ax = -_accel.readAx();
     ay = -_accel.readAy();
 
@@ -54,12 +54,12 @@ SandSim::Status SandSim::calc() {
     bool reverse;       // Scan direction: true=forward, false=reverse
 
     if (_abs(ay) > _abs(ax)) { // means Y is the dominant direction, we choose left-right scan
-        scan_order = SCAN_ORDER_RIGHT;
+        scan_order = SCAN_ORDER_GRAVITY_RIGHT;
         g_dirs[0] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
         g_dirs[1] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
-        reverse = (ay < 0);   // reverse the scan order, scan left to right while still using SCAN_ORDER_RIGHT
+        reverse = (ay < 0);   // reverse the scan order, scan left to right while still using SCAN_ORDER_GRAVITY_RIGHT
     } else { // X is dominant
-        scan_order = SCAN_ORDER_DOWN;
+        scan_order = SCAN_ORDER_GRAVITY_DOWN;
         g_dirs[0] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
         g_dirs[1] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
         reverse = (ax > 0);
@@ -69,12 +69,29 @@ SandSim::Status SandSim::calc() {
     // Start scanning
     for (uint8_t i = 0; i < 96; i++) {
         uint8_t current_led_loc = reverse ? scan_order[95 - i] : scan_order[i];
-        if (_sand_prev[current_led_loc] == 0) continue;
+        uint8_t velocity = _sand_prev[current_led_loc];
+        if (velocity == 0) continue;
 
         // Check neighbor in main gravity component
         int8_t main_neighbor = LED_NEIGHBORS[current_led_loc][g_dirs[0]];
         if (main_neighbor < 0) {            // detect if its main neighbor is -1 (wall)
             _sand_now[current_led_loc] = 1;         // if it's a wall, we don't let it fall
+            continue;
+        }
+
+        // try to fall multiple steps (accelerate with velocity)
+        int8_t fall_pos = current_led_loc;
+        uint8_t fall_steps = 0;
+        for (uint8_t s = 0; s < velocity && s < 5; s++) {
+            int8_t next = LED_NEIGHBORS[fall_pos][g_dirs[0]];
+            if (next < 0) break;
+            if (_sand_now[next] > 0) break;
+            fall_pos = next;
+            fall_steps++;
+        }
+
+        if (fall_steps > 0) {
+            _sand_now[fall_pos] = (velocity >= 5) ? 5 : velocity + 1;
             continue;
         }
 
@@ -105,7 +122,7 @@ SandSim::Status SandSim::calc() {
         }
     }
 
-    return Status::OK;
+    return status;
 }
 
 /*

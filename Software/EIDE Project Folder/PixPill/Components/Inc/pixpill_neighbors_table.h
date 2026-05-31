@@ -54,7 +54,7 @@ static const int8_t LED_NEIGHBORS[96][4] = {
 //                       {17, 2}, {17, 3},                     // Ln17: [XX][XX][K8][L8][XX][XX]
 // };
 
-static const uint8_t SCAN_ORDER_DOWN[96] = {
+static const uint8_t SCAN_ORDER_GRAVITY_DOWN[96] = {
     94, 95, 90, 91, 92, 93, 84, 85, 86, 87, 88, 89,
     78, 79, 80, 81, 82, 83, 72, 73, 74, 75, 76, 77,
     66, 67, 68, 69, 70, 71, 60, 61, 62, 63, 64, 65,
@@ -65,7 +65,7 @@ static const uint8_t SCAN_ORDER_DOWN[96] = {
      6,  7,  8,  9, 10, 11,  2,  3,  4,  5,  0,  1
 };
 
-// static const uint8_t SCAN_ORDER_UP[96] = {
+// static const uint8_t SCAN_ORDER_GRAVITY_UP[96] = {
 //      1,  0,  5,  4,  3,  2, 11, 10,  9   8,  7,  6,
 //     17, 16, 15, 14, 13, 12, 23, 22, 21, 20, 19, 18,
 //     29, 28, 27, 26, 25, 24, 35, 34, 33, 32, 31, 30,
@@ -76,7 +76,7 @@ static const uint8_t SCAN_ORDER_DOWN[96] = {
 //     89, 88, 87, 86, 85, 84, 93, 92, 91, 90, 95, 94
 // };
 
-static const uint8_t SCAN_ORDER_RIGHT[96] = {
+static const uint8_t SCAN_ORDER_GRAVITY_RIGHT[96] = {
      6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72,
     78, 84,  2,  7, 13, 19, 25, 31, 37, 43, 49, 55,
     61, 67, 73, 79, 85, 90,  0,  3,  8, 14, 20, 26,
@@ -87,7 +87,7 @@ static const uint8_t SCAN_ORDER_RIGHT[96] = {
     23, 29, 35, 41, 47, 53, 59, 65, 71, 77, 83, 89
 };
 
-// static const uint8_t SCAN_ORDER_LEFT[96] = {
+// static const uint8_t SCAN_ORDER_GRAVITY_LEFT[96] = {
 //     89, 83, 77, 71, 65, 59, 53, 47, 41, 35, 29, 23,
 //     17, 11, 93, 88, 82, 76, 70, 64, 58, 52, 46, 40,
 //     34, 28, 22, 16, 10,  5, 95, 92, 87, 81, 75, 69,

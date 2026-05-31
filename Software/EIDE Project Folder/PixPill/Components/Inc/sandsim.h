@@ -28,8 +28,8 @@ class SandSim {
         void _backup_sand_array();
         int16_t _abs(int16_t x);
 
-        bool _sand_now[96];
-        bool _sand_prev[96];
+        uint8_t _sand_now[96];
+        uint8_t _sand_prev[96];
 
         BMA530 _accel;
         IS31FL3736 _is31;
