@@ -25,6 +25,9 @@ class SandSim {
         Status draw();
 
     private:
+        void _backup_sand_array();
+        int16_t _abs(int16_t x);
+
         bool _sand_now[96];
         bool _sand_prev[96];
 

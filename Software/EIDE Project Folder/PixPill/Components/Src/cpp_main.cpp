@@ -55,6 +55,6 @@ void cpp_main() {
     while (1) {
         sand.calc();
         sand.draw();
-        HAL_Delay(100);
+        HAL_Delay(5);
     }
 }

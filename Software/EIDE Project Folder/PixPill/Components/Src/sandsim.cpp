@@ -8,11 +8,10 @@ SandSim::SandSim(BMA530 &accel, IS31FL3736 &is31) :
 }
 
 SandSim::Status SandSim::init() {
+    _sand_now[0] = 1;
+    _sand_now[1] = 1;
     _sand_now[2] = 1;
     _sand_now[6] = 1;
-    _sand_now[7] = 1;
-    _sand_now[12] = 1;
-    _sand_now[13] = 1;
     _sand_now[18] = 1;
     _sand_now[19] = 1;
     _sand_now[24] = 1;
@@ -26,6 +25,13 @@ SandSim::Status SandSim::init() {
     _sand_now[16] = 1;
     _sand_now[17] = 1;
     _sand_now[23] = 1;
+    _sand_now[65] = 1;
+    _sand_now[67] = 1;
+    _sand_now[68] = 1;
+    _sand_now[71] = 1;
+    _sand_now[72] = 1;
+    _sand_now[74] = 1;
+    _sand_now[95] = 1;
     return Status::OK;
 }
 
@@ -34,18 +40,87 @@ SandSim::Status SandSim::start() {
 }
 
 SandSim::Status SandSim::calc() {
-    for (uint8_t i = 0; i < 96; i++) {
-        _sand_prev[i] = _sand_now[i];
-        _sand_now[i] = 0;
+    _backup_sand_array();
+
+    // BMA530 Orientation: X+ → row0(top)   Y+ → col0(left)   Z+ → Ax(Vector)*Ay(Vector) (up)
+    int16_t ax, ay;
+    _accel.update();
+    ax = -_accel.readAx();
+    ay = -_accel.readAy();
+
+    // The gravity direction is the direction we will scan first
+    const uint8_t* scan_order;
+    uint8_t g_dirs[2];  // { Main gravity component, Submain gravity component }
+    bool reverse;       // Scan direction: true=forward, false=reverse
+
+    if (_abs(ay) > _abs(ax)) { // means Y is the dominant direction, we choose left-right scan
+        scan_order = SCAN_ORDER_RIGHT;
+        g_dirs[0] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
+        g_dirs[1] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
+        reverse = (ay < 0);   // reverse the scan order, scan left to right while still using SCAN_ORDER_RIGHT
+    } else { // X is dominant
+        scan_order = SCAN_ORDER_DOWN;
+        g_dirs[0] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
+        g_dirs[1] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
+        reverse = (ax > 0);
     }
 
+
+    // Start scanning
     for (uint8_t i = 0; i < 96; i++) {
-        uint8_t current_led_loc = SCAN_ORDER_DOWN[i];
+        uint8_t current_led_loc = reverse ? scan_order[95 - i] : scan_order[i];
+        if (_sand_prev[current_led_loc] == 0) continue;
+
+        // Check neighbor in main gravity component
+        int8_t main_neighbor = LED_NEIGHBORS[current_led_loc][g_dirs[0]];
+        if (main_neighbor < 0) {            // detect if its main neighbor is -1 (wall)
+            _sand_now[current_led_loc] = 1;         // if it's a wall, we don't let it fall
+            continue;
+        }
+
+        // if main gravity neighbor is empty -> fall
+        if (_sand_now[main_neighbor] == 0) {
+            _sand_now[main_neighbor] = 1;
+        } else {
+            // if blocked, try sliding along the two perpendicular directions
+            int8_t slide_a = LED_NEIGHBORS[main_neighbor][g_dirs[1]];      // side A
+            int8_t slide_b = LED_NEIGHBORS[main_neighbor][g_dirs[1] ^ 1];  // side B (opposite)
+
+            // Randomize which side to try first
+            _random = (_random * 131 + 53) & 0xFF;
+            if (_random & 1) { int8_t t = slide_a; slide_a = slide_b; slide_b = t; }
+
+            bool moved = false;
+            if (slide_a >= 0 && _sand_now[slide_a] == 0) {  // if side a is not wall && has no grain
+                _sand_now[slide_a] = 1;                     // slide
+                moved = true;
+            }
+            if (!moved && slide_b >= 0 && _sand_now[slide_b] == 0) { // if side a is blocked, try side b
+                _sand_now[slide_b] = 1;
+                moved = true;
+            }
+            if (!moved) {  // Completely stuck
+                _sand_now[current_led_loc] = 1;
+            }
+        }
+    }
+
+    return Status::OK;
+}
+
+/*
+SandSim::Status SandSim::calc() {
+    _backup_sand_array();
+
+    // Start scanning
+    for (uint8_t i = 0; i < 96; i++) {
+        uint8_t current_led_loc = scan_order[i];
         if (_sand_prev[current_led_loc] == 0) continue;
 
         // if we have a sand grain here
+        // we check its downward neighbor first
         int8_t downward_loc = LED_NEIGHBORS[current_led_loc][NEIGHBOR_DOWN];
-        if (downward_loc < 0) {                 // we detect if its downward neighbor is -1 (wall)
+        if (downward_loc < 0) {                 // detect if its downward neighbor is -1 (wall)
             _sand_now[current_led_loc] = 1;     // if it's a wall, we don't let it fall
             continue;
         }
@@ -78,6 +153,7 @@ SandSim::Status SandSim::calc() {
 
     return Status::OK;
 }
+*/
 
 SandSim::Status SandSim::draw() {
     for (uint8_t i = 0; i < 96; i++) {
@@ -87,4 +163,15 @@ SandSim::Status SandSim::draw() {
     }
 
     return Status::OK;
+}
+
+void SandSim::_backup_sand_array() {
+    for (uint8_t i = 0; i < 96; i++) {
+        _sand_prev[i] = _sand_now[i];
+        _sand_now[i] = 0;
+    }
+}
+
+int16_t SandSim::_abs(int16_t x) {
+    return (x < 0) ? -x : x;
 }
