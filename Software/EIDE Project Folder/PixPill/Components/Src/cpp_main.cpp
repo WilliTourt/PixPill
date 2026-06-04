@@ -24,6 +24,11 @@ int16_t abs(int16_t value) {
 
 void cpp_main() {
 
+    debug.info("Testing SHPACT..., now reads: %d\r\n", HAL_GPIO_ReadPin(SHPACT_GPIO_Port, SHPACT_Pin));
+    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
+    debug.info("SHPACT after SET: %d\r\n", HAL_GPIO_ReadPin(SHPACT_GPIO_Port, SHPACT_Pin));
+    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_RESET);
+
     debug.info("Initiating %s%sBMA530%s accelerometer...\r\n", BOLD, COLOR_MAGENTA, CLR);
     if (accel.begin(BMA530::ODR::_100HZ, BMA530::Range::_2G, BMA530::Power::LPM)) {
         debug.success("BMA530 accelerometer initialized.\r\n");
@@ -50,13 +55,45 @@ void cpp_main() {
     HAL_Delay(1000);
     sand.start();
 
+    uint32_t last_active_tick = HAL_GetTick();
+    const uint32_t IDLE_TIMEOUT_MS = 10000;
+    const int16_t TILT_IDLE_THRESHOLD = 2000;
+
     while (1) {
         accel.update();
-        uint16_t tilt = abs(accel.readAx()) + abs(accel.readAy());
+        int16_t ax = accel.readAx(), ay = accel.readAy();
+        uint16_t tilt = abs(ax) + abs(ay);
         uint16_t delay_ms = 100000 / (tilt + 500);
-        debug.info("Tilt: %d, Delay: %d ms\r\n", tilt, delay_ms);
         if (delay_ms > 200) delay_ms = 200;
         if (delay_ms < 20)  delay_ms = 20;
+
+        if (tilt > TILT_IDLE_THRESHOLD) {
+            last_active_tick = HAL_GetTick();
+        }
+
+        if (HAL_GetTick() - last_active_tick > IDLE_TIMEOUT_MS) {
+            debug.info("Idle timeout (%lums), shutting down...\r\n", IDLE_TIMEOUT_MS);
+            is31.ledOffAll();
+            HAL_Delay(50);
+
+            // CHG=LOW → 充电中(VBUS=ON)，船运会导致 MCU 复位，改 STOP 休眠
+            if (HAL_GPIO_ReadPin(CHG_GPIO_Port, CHG_Pin) == GPIO_PIN_RESET) {
+                debug.info("VBUS active, entering STOP mode...\r\n");
+                HAL_SuspendTick();
+                HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
+            } else {
+                debug.info("Battery only, entering ship mode...\r\n");
+                HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
+                HAL_Delay(150);
+                GPIO_InitTypeDef GPIO_InitStruct = {0};
+                GPIO_InitStruct.Pin = SHPACT_Pin;
+                GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+                GPIO_InitStruct.Pull = GPIO_NOPULL;
+                HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+            }
+            while (1);
+        }
+
         sand.calc();
         sand.draw();
         HAL_Delay(delay_ms);
