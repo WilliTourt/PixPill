@@ -61,6 +61,8 @@ void Error_Handler(void);
 #define SHPACT_GPIO_Port GPIOC
 #define CHG_Pin GPIO_PIN_7
 #define CHG_GPIO_Port GPIOB
+#define ERR_Pin GPIO_PIN_7
+#define ERR_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
