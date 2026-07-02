@@ -35,9 +35,9 @@ SandSim::Status SandSim::init() {
     return Status::OK;
 }
 
-SandSim::Status SandSim::start() {
-    return Status::OK;
-}
+// SandSim::Status SandSim::start() {
+//     return Status::OK;
+// }
 
 SandSim::Status SandSim::calc() {
     _backup_sand_array();
@@ -46,7 +46,7 @@ SandSim::Status SandSim::calc() {
     int16_t ax, ay;
     Status status = _accel.update() ? Status::OK : Status::ERR_ACCEL;
     ax = -_accel.readAx();
-    ay = -_accel.readAy();
+    ay = _accel.readAy();
 
     // The gravity direction is the direction we will scan first
     const uint8_t* scan_order;

@@ -20,7 +20,7 @@ class SandSim {
 
         Status init();
 
-        Status start();
+        // Status start();
         Status calc();
         Status draw();
 

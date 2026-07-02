@@ -1,7 +1,7 @@
 #ifndef PIXPILL_NEIGHBORS_TABLE_H
 #define PIXPILL_NEIGHBORS_TABLE_H
-#include <stdint.h>
 
+#include <stdint.h>
 
 #define NEIGHBOR_UP     (uint8_t)0
 #define NEIGHBOR_DOWN   (uint8_t)1

@@ -34,7 +34,8 @@ targets:
         - Drivers/STM32C0xx_HAL_Driver/Inc
         - Components/Inc
       libList: []
-    excludeList: []
+    excludeList:
+      - Components/Src/ElegantDebug.cpp
     settings: {}
     toolchain: GCC
     toolchainConfigMap:
