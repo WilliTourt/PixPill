@@ -111,6 +111,9 @@ void LiquidSim::_clamp_particle_to_shape(LiquidParticle_t &p) {
  * 每对粒子互查：太近→弹开，适中→吸引
  */
 void LiquidSim::_process_collisions() {
+    float min_dist_sq = LIQUID_MIN_DIST * LIQUID_MIN_DIST;
+    float attract_radius_sq = LIQUID_ATTRACT_RADIUS * LIQUID_ATTRACT_RADIUS;
+
     for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
         for (uint8_t j = i + 1; j < LIQUID_PARTICLE_COUNT; j++) {
 
@@ -125,30 +128,26 @@ void LiquidSim::_process_collisions() {
                 continue;
             }
 
-            float dist = sqrtf(dist_sq);
-
-            // 太近 → 推开 + 速度交换
-            if (dist < LIQUID_MIN_DIST) {
+            // 太近 → 推开 + 速度交换（用平方距离分支，但计算仍需sqrt）
+            if (dist_sq < min_dist_sq) {
+                float dist = sqrtf(dist_sq);
                 float ex = dx / dist;
                 float ey = dy / dist;
                 float overlap = LIQUID_MIN_DIST - dist;
 
-                // 推开重叠
                 _particles[i].x -= ex * overlap * 0.5f;
                 _particles[i].y -= ey * overlap * 0.5f;
                 _particles[j].x += ex * overlap * 0.5f;
                 _particles[j].y += ey * overlap * 0.5f;
 
-                // 速度交换（弹性碰撞）
                 float vAi = _particles[i].vx * ex + _particles[i].vy * ey;
                 float vBj = _particles[j].vx * ex + _particles[j].vy * ey;
                 _particles[i].vx += (vBj - vAi) * ex;
                 _particles[i].vy += (vBj - vAi) * ey;
                 _particles[j].vx += (vAi - vBj) * ex;
                 _particles[j].vy += (vAi - vBj) * ey;
-            }
-            // 适中 → 轻微吸引（表面张力）
-            else if (dist < LIQUID_ATTRACT_RADIUS) {
+            } else if (dist_sq < attract_radius_sq) {
+                float dist = sqrtf(dist_sq);
                 float ex = dx / dist;
                 float ey = dy / dist;
                 float force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist);
@@ -178,19 +177,31 @@ LiquidSim::Status LiquidSim::calc() {
     memset(_led_buf, 0, sizeof(_led_buf));
 
     // 把每个粒子映射到最近的LED，叠加上去
+    // row,col → LED index 查找表（预计算，一次初始化）
+    static bool lut_ready = false;
+    static int8_t lut[18][6];  // -1 = 无LED
+    if (!lut_ready) {
+        memset(lut, -1, sizeof(lut));
+        for (uint8_t led = 0; led < LIQUID_LED_COUNT; led++) {
+            lut[LIQUID_LED_ROW[led]][LIQUID_LED_COL[led]] = led;
+        }
+        lut_ready = true;
+    }
+
     for (uint8_t p = 0; p < LIQUID_PARTICLE_COUNT; p++) {
         int8_t row = (int8_t)(_particles[p].y + 0.5f);
         int8_t col = (int8_t)(_particles[p].x + 0.5f);
 
-        // 查表找这个(row,col)对应的LED index
-        // 线性搜索96个LED（可以优化但够用了）
-        for (uint8_t led = 0; led < LIQUID_LED_COUNT; led++) {
-            if (LIQUID_LED_ROW[led] == row && LIQUID_LED_COL[led] == col) {
-                // 叠加上去，超过255饱和
-                uint16_t val = _led_buf[led] + 85;  // 每个粒子贡献85
-                _led_buf[led] = (val > 255) ? 255 : (uint8_t)val;
-                break;
-            }
+        // 边界保护
+        if (row < 0) row = 0;
+        if (row > 17) row = 17;
+        if (col < 0) col = 0;
+        if (col > 5) col = 5;
+
+        int8_t idx = lut[row][col];
+        if (idx >= 0) {
+            uint16_t val = _led_buf[idx] + 85;
+            _led_buf[idx] = (val > 255) ? 255 : (uint8_t)val;
         }
     }
 

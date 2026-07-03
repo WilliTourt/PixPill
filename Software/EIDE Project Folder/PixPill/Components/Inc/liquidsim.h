@@ -4,24 +4,20 @@
 #include "is31fl3736.h"
 #include "bma530.h"
 
-#define LIQUID_PARTICLE_COUNT    20      // 粒子数量
-#define LIQUID_DAMPING           0.98f   // 速度阻尼（越小越黏）
-#define LIQUID_MIN_DIST          0.88f    // 粒子最小间距，小于则碰撞推开
-#define LIQUID_ATTRACT_RADIUS    1.8f    // 表面张力吸引半径
-#define LIQUID_ATTRACT_STRENGTH  0.01f  // 吸引力强度
-#define LIQUID_GRAVITY_SCALE     0.04f   // 倾斜→重力缩放
-#define LIQUID_DT                0.2f    // 每帧时间步长
-#define LIQUID_BOUND_BOUNCE      0.4f    // 撞墙反弹系数
+#define LIQUID_PARTICLE_COUNT    30         // 粒子数量
+#define LIQUID_DAMPING           0.985f     // 速度阻尼（越小越黏）
+#define LIQUID_MIN_DIST          0.92f      // 粒子最小间距，小于则碰撞推开
+#define LIQUID_ATTRACT_RADIUS    1.8f       // 表面张力吸引半径
+#define LIQUID_ATTRACT_STRENGTH  0.002f     // 吸引力强度
+#define LIQUID_GRAVITY_SCALE     0.34f       // 倾斜→重力缩放
+#define LIQUID_DT                0.85f       // 每帧时间步长
+#define LIQUID_BOUND_BOUNCE      0.4f      // 撞墙反弹系数
 
-// LED 布局：胶囊形 18行×6列，但两端行不满
 #define LIQUID_GRID_ROWS         18
 #define LIQUID_GRID_COLS         6
 #define LIQUID_LED_COUNT         96
 
-// 每个LED在18×6网格中的行/列
-// 帮你预计算好了：用table里的row,col，-1表示该(row,col)没有LED
 static const int8_t LIQUID_LED_ROW[LIQUID_LED_COUNT] = {
-    // 对应 LED_NEIGHBORS 的顺序：index 0~95
            0, 0,
         1, 1, 1, 1,
      2, 2, 2, 2, 2, 2,
