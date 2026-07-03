@@ -114,39 +114,41 @@ void LiquidSim::_process_collisions() {
     for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
         for (uint8_t j = i + 1; j < LIQUID_PARTICLE_COUNT; j++) {
 
-            // Calc distance between 
-            float dx = _particles[i].x - _particles[j].x;
-            float dy = _particles[i].y - _particles[j].y;
+            float dx = _particles[j].x - _particles[i].x;
+            float dy = _particles[j].y - _particles[i].y;
             float dist_sq = dx * dx + dy * dy;
 
-            if (dist_sq < 0.0001f) continue; // ignore if too close (avoid div by zero)
+            // 完全重叠 → 轻轻错开
+            if (dist_sq < 0.001f) {
+                _particles[i].x -= 0.05f;
+                _particles[j].x += 0.05f;
+                continue;
+            }
 
             float dist = sqrtf(dist_sq);
 
-            if (dist < LIQUID_MIN_DIST) { // if too close, push them apart
-                // Unit vector (from particle i to particle j)
+            // 太近 → 推开 + 速度交换
+            if (dist < LIQUID_MIN_DIST) {
                 float ex = dx / dist;
                 float ey = dy / dist;
-
-                // change their location to bigger that LIQUID_MIN_DIST, push them apart
                 float overlap = LIQUID_MIN_DIST - dist;
+
+                // 推开重叠
                 _particles[i].x -= ex * overlap * 0.5f;
                 _particles[i].y -= ey * overlap * 0.5f;
                 _particles[j].x += ex * overlap * 0.5f;
                 _particles[j].y += ey * overlap * 0.5f;
 
-                // make their velocity the same module but opposite direction
-                // ... remains doubt
+                // 速度交换（弹性碰撞）
                 float vAi = _particles[i].vx * ex + _particles[i].vy * ey;
                 float vBj = _particles[j].vx * ex + _particles[j].vy * ey;
-                float avg = (vAi + vBj) * 0.5f;
-                _particles[i].vx += (avg - vAi) * ex;
-                _particles[i].vy += (avg - vAi) * ey;
-                _particles[j].vx += (avg - vBj) * ex;
-                _particles[j].vy += (avg - vBj) * ey;
-
-            } else if (dist < LIQUID_ATTRACT_RADIUS) { // if in attraction range, attract them
-
+                _particles[i].vx += (vBj - vAi) * ex;
+                _particles[i].vy += (vBj - vAi) * ey;
+                _particles[j].vx += (vAi - vBj) * ex;
+                _particles[j].vy += (vAi - vBj) * ey;
+            }
+            // 适中 → 轻微吸引（表面张力）
+            else if (dist < LIQUID_ATTRACT_RADIUS) {
                 float ex = dx / dist;
                 float ey = dy / dist;
                 float force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist);
