@@ -5,11 +5,11 @@
 #include "bma530.h"
 
 #define LIQUID_PARTICLE_COUNT    15      // 粒子数量
-#define LIQUID_DAMPING           0.92f   // 速度阻尼（越小越黏）
-#define LIQUID_MIN_DIST          0.9f    // 粒子最小间距，小于则碰撞推开
-#define LIQUID_ATTRACT_RADIUS    1.5f    // 表面张力吸引半径
-#define LIQUID_ATTRACT_STRENGTH  0.008f  // 吸引力强度
-#define LIQUID_GRAVITY_SCALE     0.06f   // 倾斜→重力缩放
+#define LIQUID_DAMPING           0.88f   // 速度阻尼（越小越黏）
+#define LIQUID_MIN_DIST          1.2f    // 粒子最小间距，小于则碰撞推开
+#define LIQUID_ATTRACT_RADIUS    1.8f    // 表面张力吸引半径
+#define LIQUID_ATTRACT_STRENGTH  0.012f  // 吸引力强度
+#define LIQUID_GRAVITY_SCALE     0.04f   // 倾斜→重力缩放
 #define LIQUID_DT                0.5f    // 每帧时间步长
 #define LIQUID_BOUND_BOUNCE      0.4f    // 撞墙反弹系数
 
@@ -89,6 +89,7 @@ class LiquidSim {
     private:
         void _update_gravity();
         void _update_particles();
+        void _clamp_particle_to_shape(LiquidParticle_t &particle);
         void _process_collisions();
 
         BMA530 &_accel;

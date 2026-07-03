@@ -63,43 +63,46 @@ void LiquidSim::_update_gravity() {
  * v += g * dt, v *= damping, pos += v * dt
  */
 void LiquidSim::_update_particles() {
-    int8_t col_most_left[18] = {2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2};
-    int8_t col_most_right[18] = {3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,4,3};
-
     for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+        // 重力加速
         _particles[i].vx += _gravity.x * LIQUID_DT;
         _particles[i].vy += _gravity.y * LIQUID_DT;
 
+        // 阻尼
         _particles[i].vx *= LIQUID_DAMPING;
         _particles[i].vy *= LIQUID_DAMPING;
 
+        // 位置更新
         _particles[i].x += _particles[i].vx * LIQUID_DT;
         _particles[i].y += _particles[i].vy * LIQUID_DT;
 
-        // 1. 先夹Y
-        if (_particles[i].y < 0) {
-            _particles[i].y = 0;
-            _particles[i].vy *= -LIQUID_BOUND_BOUNCE;
-        }
-        if (_particles[i].y > 17) {
-            _particles[i].y = 17;
-            _particles[i].vy *= -LIQUID_BOUND_BOUNCE;
-        }
+        _clamp_particle_to_shape(_particles[i]);
+    }
+}
 
-        // 2. 用夹完后的y查表 → 再夹X
-        int8_t r = (int8_t)(_particles[i].y + 0.5f);
-        r = (r < 0) ? 0 : (r > 17) ? 17 : r;
-        float left  = (float)col_most_left[r];
-        float right = (float)col_most_right[r];
+void LiquidSim::_clamp_particle_to_shape(LiquidParticle_t &p) {
+    static const int8_t col_most_left[18] = {2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2};
+    static const int8_t col_most_right[18] = {3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,4,3};
 
-        if (_particles[i].x < left) {
-            _particles[i].x = left;
-            _particles[i].vx *= -LIQUID_BOUND_BOUNCE;
-        }
-        if (_particles[i].x > right) {
-            _particles[i].x = right;
-            _particles[i].vx *= -LIQUID_BOUND_BOUNCE;
-        }
+    int8_t r = (int8_t)(p.y + 0.5f);
+    r = (r < 0) ? 0 : (r > 17) ? 17 : r;
+    float left  = (float)col_most_left[r];
+    float right = (float)col_most_right[r];
+
+    if (p.x < left) {
+        p.x = left;
+        p.vx *= -LIQUID_BOUND_BOUNCE;
+    } else if (p.x > right) {
+        p.x = right;
+        p.vx *= -LIQUID_BOUND_BOUNCE;
+    }
+
+    if (p.y < 0) {
+        p.y = 0;
+        p.vy *= -LIQUID_BOUND_BOUNCE;
+    } else if (p.y > 17) {
+        p.y = 17;
+        p.vy *= -LIQUID_BOUND_BOUNCE;
     }
 }
 
@@ -154,6 +157,10 @@ void LiquidSim::_process_collisions() {
                 _particles[j].vy -= force * ey;
             }
         }
+    }
+
+    for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+        _clamp_particle_to_shape(_particles[i]);
     }
 }
 
