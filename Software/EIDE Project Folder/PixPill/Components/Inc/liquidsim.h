@@ -4,15 +4,34 @@
 #include "is31fl3736.h"
 #include "bma530.h"
 
-#define LIQUID_PARTICLE_COUNT    30         // 粒子数量
-#define LIQUID_DAMPING           0.985f     // 速度阻尼（越小越黏）
-#define LIQUID_MIN_DIST          0.92f      // 粒子最小间距，小于则碰撞推开
-#define LIQUID_ATTRACT_RADIUS    1.8f       // 表面张力吸引半径
-#define LIQUID_ATTRACT_STRENGTH  0.002f     // 吸引力强度
-#define LIQUID_GRAVITY_SCALE     0.34f       // 倾斜→重力缩放
-#define LIQUID_DT                0.85f       // 每帧时间步长
-#define LIQUID_BOUND_BOUNCE      0.4f      // 撞墙反弹系数
+// === 粒子数量 ===
+#define LIQUID_PARTICLE_COUNT    24
 
+// === 流体物理 ===
+#define LIQUID_DAMPING           0.99f      // 全局速度阻尼
+#define LIQUID_GRAVITY_SCALE     1.5f       // 重力强度
+#define LIQUID_DT                1.0f       // 每帧时长
+
+// === 粒子间碰撞（弹性碰撞+线性推开） ===
+#define LIQUID_MIN_DIST          1.2f       // 粒子最小间距
+#define LIQUID_COLLISIONS_ITERS  1          // 每子步位置推开次数
+
+// === 表面张力 ===
+#define LIQUID_ATTRACT_RADIUS    1.6f       // 表面张力吸引范围
+#define LIQUID_ATTRACT_STRENGTH  0.002f     // 吸引强度
+
+// === 数值积分 ===
+#define SUBSTEPS                 3          // 每帧子步数
+
+// === 墙壁 ===
+#define WALL_PUSH_MARGIN         0.4f       // 离墙多近开始排斥
+#define WALL_PUSH_STRENGTH       1.5f       // 墙排斥力强度
+
+// === 密度场 ===
+#define DENSITY_MAX_BRIGHTNESS   255.0f     // 最大PWM值
+#define DENSITY_PER_PARTICLE     240.0f     // 每个粒子的总贡献度
+
+// === 网格 ===
 #define LIQUID_GRID_ROWS         18
 #define LIQUID_GRID_COLS         6
 #define LIQUID_LED_COUNT         96
@@ -59,6 +78,28 @@ static const int8_t LIQUID_LED_COL[LIQUID_LED_COUNT] = {
         2,3
 };
 
+// LED网格掩码 - 用于密度场检查格子是否有效
+static const bool LIQUID_LED_MASK[18][6] = {
+    {0,0,1,1,0,0},
+    {0,1,1,1,1,0},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {1,1,1,1,1,1},
+    {0,1,1,1,1,0},
+    {0,0,1,1,0,0}
+};
+
 
 class LiquidSim {
     public:
@@ -84,16 +125,18 @@ class LiquidSim {
 
     private:
         void _update_gravity();
-        void _update_particles();
+        void _update_particles(float dt);
         void _clamp_particle_to_shape(LiquidParticle_t &particle);
+        void _get_boundary(float y, float &left, float &right);
         void _process_collisions();
+        void _compute_density(float density[18][6]);
 
         BMA530 &_accel;
         IS31FL3736 &_is31;
 
         LiquidParticle_t _particles[LIQUID_PARTICLE_COUNT];
         Vector_t _gravity;
-        
+
         uint8_t _led_buf[LIQUID_LED_COUNT];  // 0=灭 255=最亮
         uint16_t _random;
 };
