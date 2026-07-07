@@ -16,12 +16,12 @@
 #define LIQUID_MIN_DIST          1.2f       // 粒子最小间距
 #define LIQUID_COLLISIONS_ITERS  1          // 每子步位置推开次数
 
-// === 表面张力 ===
-#define LIQUID_ATTRACT_RADIUS    1.6f       // 表面张力吸引范围
-#define LIQUID_ATTRACT_STRENGTH  0.002f     // 吸引强度
+// === 表面张力（已关闭省算力） ===
+#define LIQUID_ATTRACT_RADIUS    1.6f       // 未使用
+#define LIQUID_ATTRACT_STRENGTH  0.0f       // 关掉省算力
 
 // === 数值积分 ===
-#define SUBSTEPS                 3          // 每帧子步数
+#define SUBSTEPS                 2          // 每帧子步数
 
 // === 墙壁 ===
 #define WALL_PUSH_MARGIN         0.4f       // 离墙多近开始排斥

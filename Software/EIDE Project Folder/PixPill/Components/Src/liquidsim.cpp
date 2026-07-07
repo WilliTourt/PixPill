@@ -2,6 +2,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "inv_sqrt_table.h"
+
 using namespace std;
 
 LiquidSim::LiquidSim(BMA530 &accel, IS31FL3736 &is31)
@@ -46,8 +48,8 @@ void LiquidSim::_update_gravity() {
     float ax = (float)(ax_raw) / 16384.0f;
     float ay = (float)(ay_raw) / 16384.0f;
 
-    if (fabs(ax) < 0.03f) ax = 0;
-    if (fabs(ay) < 0.03f) ay = 0;
+    if (fabsf(ax) < 0.03f) ax = 0;
+    if (fabsf(ay) < 0.03f) ay = 0;
 
     _gravity.x = -ay * LIQUID_GRAVITY_SCALE;
     _gravity.y = ax * LIQUID_GRAVITY_SCALE;
@@ -132,7 +134,7 @@ void LiquidSim::_process_collisions() {
     float min_dist_sq = LIQUID_MIN_DIST * LIQUID_MIN_DIST;
     float attract_sq  = LIQUID_ATTRACT_RADIUS * LIQUID_ATTRACT_RADIUS;
 
-    // 第一段：碰撞推开 + 弹性速度交换
+    // 第一段：碰撞推开 + 弹性速度交换（用查表替代sqrtf）
     for (uint8_t iter = 0; iter < LIQUID_COLLISIONS_ITERS; iter++) {
         for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
             for (uint8_t j = i + 1; j < LIQUID_PARTICLE_COUNT; j++) {
@@ -150,18 +152,30 @@ void LiquidSim::_process_collisions() {
                 }
 
                 if (dist_sq < min_dist_sq) {
-                    float dist = sqrtf(dist_sq);
-                    float ex = dx / dist;
-                    float ey = dy / dist;
+                    // 太近时查表误差大，用原始 sqrtf 保证精度
+                    float inv_dist, dist;
+                    if (dist_sq < 0.05f) {
+                        dist = sqrtf(dist_sq);
+                        inv_dist = 1.0f / dist;
+                    } else {
+                        uint16_t idx = (uint16_t)(dist_sq * 500.0f);
+                        if (idx >= INV_SQRT_TABLE_SIZE) idx = INV_SQRT_TABLE_SIZE - 1;
+                        inv_dist = inv_sqrt_table[idx];
+                        dist = 1.0f / inv_dist;
+                    }
 
-                    // 线性推开（参考: overlap = 0.5*(MIN_DIST - dist)）
+                    float ex = dx * inv_dist;
+                    float ey = dy * inv_dist;
+
+                    // 线性推开
                     float overlap = 0.5f * (LIQUID_MIN_DIST - dist);
+                    if (overlap < 0.0f) overlap = 0.0f;  // 防精度导致负数
                     _particles[i].x -= overlap * ex;
                     _particles[i].y -= overlap * ey;
                     _particles[j].x += overlap * ex;
                     _particles[j].y += overlap * ey;
 
-                    // 弹性碰撞动量交换（参考: avg = (vA+vB)/2）
+                    // 弹性碰撞动量交换
                     float vA = _particles[i].vx * ex + _particles[i].vy * ey;
                     float vB = _particles[j].vx * ex + _particles[j].vy * ey;
                     float avg = (vA + vB) / 2.0f;
@@ -175,31 +189,50 @@ void LiquidSim::_process_collisions() {
         }
     }
 
-    // 第二段：表面张力
-    for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
-        for (uint8_t j = i + 1; j < LIQUID_PARTICLE_COUNT; j++) {
-            float dx = _particles[j].x - _particles[i].x;
-            float dy = _particles[j].y - _particles[i].y;
-            float dist_sq = dx * dx + dy * dy;
+    // 第二段：表面张力（仅在强度>0时执行）
+    if (LIQUID_ATTRACT_STRENGTH > 0.0f) {
+        for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+            for (uint8_t j = i + 1; j < LIQUID_PARTICLE_COUNT; j++) {
+                float dx = _particles[j].x - _particles[i].x;
+                float dy = _particles[j].y - _particles[i].y;
+                float dist_sq = dx * dx + dy * dy;
 
-            if (dist_sq >= min_dist_sq && dist_sq < attract_sq) {
-                float dist = sqrtf(dist_sq);
-                float ex = dx / dist;
-                float ey = dy / dist;
-                float force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist);
-                _particles[i].vx += force * ex;
-                _particles[i].vy += force * ey;
-                _particles[j].vx -= force * ex;
-                _particles[j].vy -= force * ey;
+                if (dist_sq >= min_dist_sq && dist_sq < attract_sq) {
+                    float inv_dist, dist;
+                    if (dist_sq < 0.05f) {
+                        dist = sqrtf(dist_sq);
+                        inv_dist = 1.0f / dist;
+                    } else {
+                        uint16_t idx = (uint16_t)(dist_sq * 500.0f);
+                        if (idx >= INV_SQRT_TABLE_SIZE) idx = INV_SQRT_TABLE_SIZE - 1;
+                        inv_dist = inv_sqrt_table[idx];
+                        dist = 1.0f / inv_dist;
+                    }
+                    float ex = dx * inv_dist;
+                    float ey = dy * inv_dist;
+                    float force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist);
+                    _particles[i].vx += force * ex;
+                    _particles[i].vy += force * ey;
+                    _particles[j].vx -= force * ex;
+                    _particles[j].vy -= force * ey;
+                }
             }
         }
-    }
+    }  // LIQUID_ATTRACT_STRENGTH > 0
 
     for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
         _clamp_particle_to_shape(_particles[i]);
+        // 兜底：如果粒子被推到离谱的位置，强制拉回
+        if (_particles[i].y < 0.0f || _particles[i].y > 18.0f ||
+            _particles[i].x < -1.0f || _particles[i].x > 7.0f) {
+            // 重置到中间安全区域
+            _particles[i].x = 2.5f;
+            _particles[i].y = 9.0f;
+            _particles[i].vx = 0.0f;
+            _particles[i].vy = 0.0f;
+        }
     }
 }
-
 /*
  * 双线性插值密度场
  * 每个粒子贡献到最近4个LED格子，按距离比例分配
