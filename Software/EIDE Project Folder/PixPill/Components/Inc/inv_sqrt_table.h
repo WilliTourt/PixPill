@@ -3,6 +3,7 @@
 #define INV_SQRT_SCALE           500
 #define INV_SQRT_TABLE_SIZE      2001
 
+// LUT for sqrtf()
 // ≈ 8KB
 const float inv_sqrt_table[INV_SQRT_TABLE_SIZE] = {
     1000.000000f, 22.360680f, 15.811388f, 12.909944f, 11.180340f, 10.000000f, 9.128709f, 8.451543f,

@@ -4,37 +4,42 @@
 #include "is31fl3736.h"
 #include "bma530.h"
 
-// === 粒子数量 ===
-#define LIQUID_PARTICLE_COUNT    24
+// Numbers of Particles
+#define LIQUID_PARTICLE_COUNT               16
 
-// === 流体物理 ===
-#define LIQUID_DAMPING           0.99f      // 全局速度阻尼
-#define LIQUID_GRAVITY_SCALE     1.5f       // 重力强度
-#define LIQUID_DT                1.0f       // 每帧时长
+// Numerical Integration
+#define SUBSTEPS                            2      // more substeps = more stable but slower
 
-// === 粒子间碰撞（弹性碰撞+线性推开） ===
-#define LIQUID_MIN_DIST          1.2f       // 粒子最小间距
-#define LIQUID_COLLISIONS_ITERS  1          // 每子步位置推开次数
+// Fluid Physics
+#define LIQUID_DAMPING                      0.97f  // global damping factor for velocity
+#define LIQUID_GRAVITY_SCALE                1.55f  // gravity strength
+#define LIQUID_DT                           1.0f   // frame duration, too fast will cause instability
 
-// === 表面张力（已关闭省算力） ===
-#define LIQUID_ATTRACT_RADIUS    1.6f       // 未使用
-#define LIQUID_ATTRACT_STRENGTH  0.0f       // 关掉省算力
+// Collisions
+#define LIQUID_MIN_DIST                     1.29f  // Expected minimum distance between particles (for collision detection)
+#define LIQUID_COLLISION_DAMPING            0.7f   // collision momentum exchange damping
+#define LIQUID_COLLISIONS_ITERS             1      // number of position pushes per substep
 
-// === 数值积分 ===
-#define SUBSTEPS                 2          // 每帧子步数
+// Surface tension (NOW CLOSED FOR PERFORMANCE)
+#define LIQUID_ATTRACT_STRENGTH             0.0f   // Attract strength
+#define LIQUID_ATTRACT_RADIUS               1.8f   // Distance at which attraction starts
 
-// === 墙壁 ===
-#define WALL_PUSH_MARGIN         0.4f       // 离墙多近开始排斥
-#define WALL_PUSH_STRENGTH       1.5f       // 墙排斥力强度
+// Walls
+#define WALL_PUSH_MARGIN                    0.3f   // Distance from wall before pushing
+#define WALL_PUSH_STRENGTH                  1.4f   // Push strength
 
-// === 密度场 ===
-#define DENSITY_MAX_BRIGHTNESS   255.0f     // 最大PWM值
-#define DENSITY_PER_PARTICLE     240.0f     // 每个粒子的总贡献度
+// Density Field
+#define DENSITY_MAX_BRIGHTNESS              255.0f // Maximum PWM value (LED Brightness)
+#define DENSITY_PER_PARTICLE                270.0f // Contribution of each particle to the density field
 
-// === 网格 ===
-#define LIQUID_GRID_ROWS         18
-#define LIQUID_GRID_COLS         6
-#define LIQUID_LED_COUNT         96
+// Density Force
+#define LIQUID_DENSITY_PRESSURE_THRESHOLD   92.0f  // Density threshold for triggering pressure force
+#define LIQUID_PRESSURE_STRENGTH            3.6f   // Density pressure force
+
+// Grid
+#define LIQUID_GRID_ROWS 18
+#define LIQUID_GRID_COLS 6
+#define LIQUID_LED_COUNT 96
 
 static const int8_t LIQUID_LED_ROW[LIQUID_LED_COUNT] = {
            0, 0,
@@ -78,7 +83,7 @@ static const int8_t LIQUID_LED_COL[LIQUID_LED_COUNT] = {
         2,3
 };
 
-// LED网格掩码 - 用于密度场检查格子是否有效
+// LED grid mask — valid cells for density field and particle placement
 static const bool LIQUID_LED_MASK[18][6] = {
     {0,0,1,1,0,0},
     {0,1,1,1,1,0},
@@ -136,7 +141,8 @@ class LiquidSim {
 
         LiquidParticle_t _particles[LIQUID_PARTICLE_COUNT];
         Vector_t _gravity;
+        int8_t _led_lut[18][6];  // density grid coord → LED index, -1=invalid
 
-        uint8_t _led_buf[LIQUID_LED_COUNT];  // 0=灭 255=最亮
+        uint8_t _led_buf[LIQUID_LED_COUNT];  // 0=off 255=full brightness
         uint16_t _random;
 };

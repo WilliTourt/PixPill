@@ -1,5 +1,5 @@
 """
-PixPill 液体模拟 + 密度场渲染 + 动态倾斜
+PixPill Liquid Simulation (Dynamic Gravity Tilt)
 """
 import math
 import matplotlib
@@ -9,39 +9,42 @@ import matplotlib.animation as animation
 from matplotlib.patches import Rectangle
 import numpy as np
 
-# ==================== 参数（对齐C++） ====================
+# ==================== Parameters ====================
+LIQUID_PARTICLE_COUNT = 16
 
-# --- 流体物理 ---
-LIQUID_PARTICLE_COUNT = 20
-LIQUID_DAMPING = 0.90
-LIQUID_GRAVITY_SCALE = 1.8
+# --- Numerical Integration ---
+SUBSTEPS = 2
+
+# --- Fluid Physics ---
+LIQUID_DAMPING = 0.97
+LIQUID_GRAVITY_SCALE = 1.55
 LIQUID_DT = 1.0
 
-# --- 粒子间碰撞 ---
-LIQUID_MIN_DIST = 1.4
+# --- Particle Collision ---
+LIQUID_MIN_DIST = 1.29
+LIQUID_COLLISION_DAMPING = 0.7
 LIQUID_COLLISIONS_ITERS = 1
-COLLISION_PUSH_K = 0.45
-COLLISION_FRICTION = 0.8
 
-# --- 表面张力 ---
+# --- Surface Tension ---
+LIQUID_ATTRACT_STRENGTH = 0.0
 LIQUID_ATTRACT_RADIUS = 1.8
-LIQUID_ATTRACT_STRENGTH = 0.002
-VEL_EXCHANGE_STRENGTH = 0.1
 
-# --- 数值积分 ---
-SUBSTEPS = 5
+# --- Walls ---
+WALL_PUSH_MARGIN = 0.3
+WALL_PUSH_STRENGTH = 1.4
 
-# --- 墙壁 ---
-WALL_PUSH_MARGIN = 0.4
-WALL_PUSH_STRENGTH = 1.5
-
-# --- 密度场 ---
+# --- Density Field ---
 DENSITY_MAX_BRIGHTNESS = 255.0
-DENSITY_PER_PARTICLE = 270.0  # 每个粒子分散到附近格子的总贡献度
+DENSITY_PER_PARTICLE = 270.0  # Total contribution per particle to nearby cells
+
+LIQUID_DENSITY_PRESSURE_THRESHOLD = 92.0
+LIQUID_PRESSURE_FORCE = 3.6
 
 ROWS, COLS = 18, 6
 
-# LED网格
+
+
+# LED grid config
 LED_MASK = [[False]*COLS for _ in range(ROWS)]
 for row in range(ROWS):
     for col in range(COLS):
@@ -64,7 +67,7 @@ class LiquidParticle:
         self.vy = 0.0
 
 
-# 初始化
+# Initialize particles
 particles = [LiquidParticle() for _ in range(LIQUID_PARTICLE_COUNT)]
 rng = 131
 for p in particles:
@@ -81,7 +84,7 @@ min_dist_sq = LIQUID_MIN_DIST * LIQUID_MIN_DIST
 attract_sq = LIQUID_ATTRACT_RADIUS * LIQUID_ATTRACT_RADIUS
 
 
-# ==================== 边界 ====================
+# ==================== Boundary ====================
 def get_boundary(y):
     if y <= 1.5:
         t = y / 1.5
@@ -118,10 +121,10 @@ def clamp_particle(p):
     if p.y > 17: p.y = 17
 
 
-# ==================== 物理 ====================
+# ==================== Physics ====================
 def update_particles(dt, ax_tilt, ay_tilt):
-    """ax_tilt, ay_tilt: 归一化加速度（-1~1）"""
-    # BMA530方向: gravity.x = -ay, gravity.y = ax
+    """ax_tilt, ay_tilt: normalized acceleration (-1 to 1)"""
+    # BMA530 orientation: gravity.x = -ay, gravity.y = ax
     gx = -ay_tilt * LIQUID_GRAVITY_SCALE
     gy = ax_tilt * LIQUID_GRAVITY_SCALE
 
@@ -137,8 +140,11 @@ def update_particles(dt, ax_tilt, ay_tilt):
 
 def process_collisions():
     """
-    碰撞：参考代码风格 - 弹性碰撞 + 线性推开
+    Collision + light density pressure
     """
+    density, _ = compute_density_field()
+
+    # === Particle-particle collision (elastic + linear push) ===
     for iteration in range(LIQUID_COLLISIONS_ITERS):
         for i in range(LIQUID_PARTICLE_COUNT):
             for j in range(i + 1, LIQUID_PARTICLE_COUNT):
@@ -155,35 +161,67 @@ def process_collisions():
                     dist = math.sqrt(dist_sq)
                     ex = dx / dist; ey = dy / dist
 
-                    # 线性推开（参考: overlap = 0.5*(MIN_DIST - dist)）
+                    # Linear push
                     overlap = 0.5 * (LIQUID_MIN_DIST - dist)
                     particles[i].x -= overlap * ex
                     particles[i].y -= overlap * ey
                     particles[j].x += overlap * ex
                     particles[j].y += overlap * ey
 
-                    # 弹性碰撞动量交换（参考: avg = (vA+vB)/2）
+                    # Elastic collision
                     vA = particles[i].vx * ex + particles[i].vy * ey
                     vB = particles[j].vx * ex + particles[j].vy * ey
-                    avg = (vA + vB) / 2.0
-
+                    avg = (vA + vB) / 2.0 * LIQUID_COLLISION_DAMPING
                     particles[i].vx += (avg - vA) * ex
                     particles[i].vy += (avg - vA) * ey
                     particles[j].vx += (avg - vB) * ex
                     particles[j].vy += (avg - vB) * ey
 
-    # 表面张力
-    for i in range(LIQUID_PARTICLE_COUNT):
-        for j in range(i + 1, LIQUID_PARTICLE_COUNT):
-            dx = particles[j].x - particles[i].x
-            dy = particles[j].y - particles[i].y
-            dist_sq = dx * dx + dy * dy
-            if dist_sq >= min_dist_sq and dist_sq < attract_sq:
-                dist = math.sqrt(dist_sq)
-                ex = dx / dist; ey = dy / dist
-                force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist)
-                particles[i].vx += force * ex; particles[i].vy += force * ey
-                particles[j].vx -= force * ex; particles[j].vy -= force * ey
+    # === Density pressure: push velocity away from dense areas ===
+    # Only runs after collision, no extra collision iteration
+    density2, _ = compute_density_field()
+    for p in particles:
+        row = int(p.y + 0.5)
+        col = int(p.x + 0.5)
+        if 0 <= row < ROWS and 0 <= col < COLS and LED_MASK[row][col]:
+            d = density2[row][col]
+            if d > LIQUID_DENSITY_PRESSURE_THRESHOLD:
+                excess = (d - LIQUID_DENSITY_PRESSURE_THRESHOLD) / DENSITY_MAX_BRIGHTNESS
+                # Accumulate push direction toward lowest-density neighbor
+                push_x, push_y = 0.0, 0.0
+                total_w = 0.0
+                for dr in range(-1, 2):
+                    for dc in range(-1, 2):
+                        if dr == 0 and dc == 0:
+                            continue
+                        nr, nc = row + dr, col + dc
+                        if 0 <= nr < ROWS and 0 <= nc < COLS and LED_MASK[nr][nc]:
+                            # Weight = density difference (positive = neighbor is sparser)
+                            diff = d - density2[nr][nc]
+                            if diff > 0:
+                                w = diff / DENSITY_MAX_BRIGHTNESS
+                                push_x += dc * w
+                                push_y += dr * w
+                                total_w += w
+                if total_w > 0.001:
+                    push_x /= total_w
+                    push_y /= total_w
+                    p.vx += push_x * excess * LIQUID_PRESSURE_FORCE
+                    p.vy += push_y * excess * LIQUID_PRESSURE_FORCE
+
+    # Surface tension (disabled)
+    if LIQUID_ATTRACT_STRENGTH > 0.0:
+        for i in range(LIQUID_PARTICLE_COUNT):
+            for j in range(i + 1, LIQUID_PARTICLE_COUNT):
+                dx = particles[j].x - particles[i].x
+                dy = particles[j].y - particles[i].y
+                dist_sq = dx * dx + dy * dy
+                if dist_sq >= min_dist_sq and dist_sq < attract_sq:
+                    dist = math.sqrt(dist_sq)
+                    ex = dx / dist; ey = dy / dist
+                    force = LIQUID_ATTRACT_STRENGTH * (LIQUID_ATTRACT_RADIUS - dist)
+                    particles[i].vx += force * ex; particles[i].vy += force * ey
+                    particles[j].vx -= force * ex; particles[j].vy -= force * ey
 
     for p in particles:
         clamp_particle(p)
@@ -191,15 +229,16 @@ def process_collisions():
 
 def compute_density_field():
     """
-    双线性插值密度场：每个粒子贡献到最近的4个LED格子
-    按X/Y方向距离比例分配权重，总贡献=DENSITY_PER_PARTICLE
-    C++友好：无exp()，只有加减乘除
+    Bilinear interpolation density field:
+    Each particle contributes to 4 nearest LED cells, weighted by distance.
+    Sum contribution = DENSITY_PER_PARTICLE
+    C++-friendly: no exp(), only + - * /
     """
     density = np.zeros((ROWS, COLS))
 
     for p in particles:
-        fx = p.x  # 浮点列 (0~5)
-        fy = p.y  # 浮点行 (0~17)
+        fx = p.x  # float column (0~5)
+        fy = p.y  # float row (0~17)
 
         col0 = int(fx)
         col1 = col0 + 1
@@ -226,8 +265,8 @@ def compute_density_field():
 
 def step():
     global frame_count
-    # 动态倾斜：放大正弦周期，让倾斜变化慢一点
-    # 上下倾斜: ax = sin(frame*0.02), 左右倾斜: ay = cos(frame*0.02)
+    # Dynamic tilt with slow sine period
+    # Vertical: ax = sin(frame*0.02), horizontal: ay = cos(frame*0.02)
     ax_tilt = math.sin(frame_count * 0.02)
     ay_tilt = math.cos(frame_count * 0.02)
 
@@ -239,14 +278,13 @@ def step():
 
 
 # ==================== 可视化 ====================
-fig = plt.figure(figsize=(13, 8))
-gs = fig.add_gridspec(2, 2, width_ratios=[1.2, 1], height_ratios=[1, 1],
-                      hspace=0.35, wspace=0.3)
+fig = plt.figure(figsize=(16, 9))
+gs = fig.add_gridspec(2, 2, width_ratios=[2.5, 1], height_ratios=[1, 1],
+                      hspace=0.3, wspace=0.25)
 
-ax_particles = fig.add_subplot(gs[0, 0])
-ax_density = fig.add_subplot(gs[0, 1])
-ax_hist = fig.add_subplot(gs[1, 0])
-ax_pwm = fig.add_subplot(gs[1, 1])
+ax_particles = fig.add_subplot(gs[:, 0])     # 左全高：粒子图（大）
+ax_hist = fig.add_subplot(gs[0, 1])         # 右上：直方图
+ax_pwm = fig.add_subplot(gs[1, 1])          # 右下：PWM Output
 fig.patch.set_facecolor('#1a1a2e')
 
 # --- 粒子图 ---
@@ -258,12 +296,37 @@ ax_particles.tick_params(colors='#666')
 ax_particles.grid(True, alpha=0.15, color='#333')
 ax_particles.set_title('Particles', color='#aaa', fontsize=11)
 
+# 密度场格子（每帧更新颜色，用 inferno 色阶）
+grid_patches = []
 for row in range(18):
     for col in range(6):
-        fc = '#0a2a0a' if LED_MASK[row][col] else '#000000'
-        ec = '#1a3a1a' if LED_MASK[row][col] else '#111111'
-        ax_particles.add_patch(Rectangle((col-0.5, row-0.5), 1, 1,
-                               facecolor=fc, edgecolor=ec, alpha=0.5))
+        if LED_MASK[row][col]:
+            p = Rectangle((col-0.5, row-0.5), 1, 1,
+                          facecolor='#0a2a0a', edgecolor='#1a3a1a', alpha=0.5)
+            ax_particles.add_patch(p)
+            grid_patches.append((row, col, p))
+
+# 柔和的蓝色调 colormap（密度 → 深蓝 → 亮青 → 淡蓝白）
+from matplotlib.colors import LinearSegmentedColormap
+density_cmap = LinearSegmentedColormap.from_list('density_soft', [
+    (0.00, '#0a1018'),   # 密度0：深暗蓝
+    (0.15, '#0d2840'),   # 低密度：深海蓝
+    (0.35, '#0e4a6e'),   # 中低：钢蓝
+    (0.55, '#1a6e94'),   # 中：湖蓝
+    (0.75, '#3d9db5'),   # 中高：浅湖蓝
+    (1.00, '#7ec8d8'),   # 高密度：淡青白
+])
+
+# 密度色标(colorbar) — 放在粒子图右侧的细条
+from matplotlib.colorbar import ColorbarBase
+from matplotlib.colors import Normalize
+cax_density = fig.add_axes([0.61, 0.11, 0.02, 0.78])
+density_norm = Normalize(vmin=0, vmax=DENSITY_MAX_BRIGHTNESS)
+density_cbar = ColorbarBase(cax_density, cmap=density_cmap, norm=density_norm,
+                             orientation='vertical')
+density_cbar.set_label('Density', color='#aaa', fontsize=9)
+density_cbar.ax.tick_params(colors='#aaa', labelsize=8)
+density_cbar.outline.set_edgecolor('#444')
 y_pts = np.linspace(0, 17, 300)
 left_pts, right_pts = [], []
 for y in y_pts:
@@ -271,23 +334,13 @@ for y in y_pts:
     left_pts.append(l); right_pts.append(r)
 ax_particles.plot(left_pts, y_pts, 'r-', alpha=0.8, lw=1.5)
 ax_particles.plot(right_pts, y_pts, 'r-', alpha=0.8, lw=1.5)
-scatter = ax_particles.scatter([], [], c='#00ccff', s=60, alpha=0.9,
+scatter = ax_particles.scatter([], [], c='#00ccff', s=80, alpha=0.9,
                                 edgecolors='white', linewidth=0.5)
 # 重力方向指示箭头
 g_arrow = ax_particles.arrow(5.2, 1, 0, 0, head_width=0.3, head_length=0.3,
                               fc='yellow', ec='yellow', alpha=0.8)
 
-# --- 密度场 ---
-ax_density.set_xlim(-0.5, 5.5); ax_density.set_ylim(-0.5, 17.5)
-ax_density.set_aspect('equal'); ax_density.invert_yaxis()
-ax_density.set_facecolor('#0f0f1a')
-ax_density.set_xticks(range(6)); ax_density.set_yticks(range(18))
-ax_density.tick_params(colors='#666')
-ax_density.set_title('Density Field', color='#aaa', fontsize=11)
-density_img = ax_density.imshow(np.zeros((ROWS, COLS)), origin='upper',
-                                 cmap='inferno', vmin=0, vmax=1.5,
-                                 extent=[-0.5, 5.5, 17.5, -0.5],
-                                 interpolation='bilinear')
+
 
 # --- PWM ---
 pwm_display = np.zeros((ROWS, COLS))
@@ -323,8 +376,21 @@ def update(_):
     scatter.set_offsets(np.column_stack([xs, ys]))
 
     density, brightness = compute_density_field()
-    density_img.set_data(density)
     pwm_img.set_data(brightness)
+
+    # === 更新密度场格子颜色（柔和蓝色调） ===
+    for row, col, patch in grid_patches:
+        d = density[row][col]
+        if d <= 0:
+            patch.set_facecolor('#060a10')
+            patch.set_edgecolor('#10151f')
+            patch.set_alpha(0.25)
+        else:
+            ratio = min(d / DENSITY_MAX_BRIGHTNESS, 1.0)
+            rgba = density_cmap(ratio)
+            patch.set_facecolor(rgba[:3])
+            patch.set_edgecolor((rgba[0]*0.3, rgba[1]*0.3, rgba[2]*0.3))
+            patch.set_alpha(0.3 + ratio * 0.45)
 
     # 粒子间距
     distances = []
@@ -360,11 +426,11 @@ def update(_):
     ay_tilt = math.cos(frame_count * 0.02)
     ax_particles.set_title(
         f'Particles ({LIQUID_PARTICLE_COUNT}) | '
-        f'tilt({ax_tilt:+.2f},{ay_tilt:+.2f}) | '
+        f'Gravity tilt({ax_tilt:+.2f},{ay_tilt:+.2f}) | '
         f'r17:{r17} r16:{r16} r15:{r15} up:{above}',
         color='#aaa', fontsize=11)
 
-    return [scatter, density_img, pwm_img]
+    return [scatter, pwm_img]
 
 
 ani = animation.FuncAnimation(fig, update, frames=500, interval=60,
