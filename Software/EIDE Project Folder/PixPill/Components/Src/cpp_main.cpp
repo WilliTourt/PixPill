@@ -2,110 +2,239 @@
 
 #include "bma530.h"
 #include "is31fl3736.h"
-// #include "ElegantDebug.h"
 
+#include "sim_base.h"
 #include "sandsim.h"
 #include "liquidsim.h"
+#include "pixpill_anim.h"
+
+// ===================== State Machine =====================
+
+enum class DeviceState : uint8_t {
+    RUNNING,   // Simulation active
+    SHUTDOWN   // Ship mode / stop
+};
+
+enum class SimMode : uint8_t {
+    SAND,
+    LIQUID
+};
+
+struct PwrFlags {
+    bool charging; // USB plugged
+    bool error;    // nPM fault
+};
+
+// ===================== Globals =====================
+
+DeviceState state = DeviceState::RUNNING;
+SimMode simMode = SimMode::LIQUID;
+PwrFlags pwrFlags = {false, false};
 
 BMA530 accel(&hi2c1);
 IS31FL3736 is31(&hi2c1);
-// ElegantDebug debug(&huart2, true, true, true);
 
-// SandSim sand(accel, is31);
+SimBase *sim = nullptr;
+SandSim sand(accel, is31);
 LiquidSim liquid(accel, is31);
+PixPillAnim anim(is31);
 
-int16_t abs(int16_t value) {
-    return (value < 0) ? -value : value;
+// ===================== Gesture Detection =====================
+// Detect a quick left-right-left-right shake (4 direction changes in 500ms)
+
+static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
+static const uint32_t SHAKE_WINDOW_MS = 300;    // time window for gesture
+
+int16_t  last_ax = 0;
+uint8_t  shake_count = 0;
+uint32_t shake_first_ms = 0;
+bool     shake_positive = false;  // true = current direction is positive
+
+static bool gestureDetect(int16_t ax) {
+    uint32_t now = HAL_GetTick();
+
+    // Detect zero-crossing with magnitude
+    bool is_positive = (ax > SHAKE_THRESHOLD);
+    bool is_negative = (ax < -SHAKE_THRESHOLD);
+
+    if (!is_positive && !is_negative) return false;  // not enough tilt
+
+    bool new_dir = is_positive;
+    if (new_dir == shake_positive) return false;  // same direction, ignore
+
+    // Direction changed
+    if (shake_count == 0) {
+        shake_first_ms = now;
+    } else if (now - shake_first_ms > SHAKE_WINDOW_MS) {
+        // Too slow, reset
+        shake_count = 0;
+        shake_first_ms = now;
+    }
+
+    shake_positive = new_dir;
+    shake_count++;
+
+    if (shake_count >= 4) {
+        shake_count = 0;
+        return true;
+    }
+
+    return false;
 }
 
-// uint16_t rand(int32_t seed) {
-//     seed = (seed * 114 + 514) % 1000000;
-//     seed = (0xDEADBEEF / seed) * 7 + 12345;
-//     return (uint16_t)(seed % 65536);
-// }
+// ===================== Power Monitoring =====================
+
+static void updatePowerFlags() {
+    pwrFlags.charging = (HAL_GPIO_ReadPin(CHG_GPIO_Port, CHG_Pin) == GPIO_PIN_RESET);
+    pwrFlags.error   = (HAL_GPIO_ReadPin(ERR_GPIO_Port, ERR_Pin) == GPIO_PIN_RESET);
+}
+
+// ===================== LED Status Blink =====================
+
+static uint32_t led_last_toggle_ms = 0;
+static bool     led_on = false;
+
+static void blink(uint32_t interval_ms) {
+    uint32_t now = HAL_GetTick();
+    if (now - led_last_toggle_ms >= interval_ms) {
+        led_last_toggle_ms = now;
+        led_on = !led_on;
+        HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin,
+                          led_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    }
+}
+
+// ===================== LED Array Animations (moved to pixpill_anim.cpp) =====================
+
+// ===================== Sleep / Shutdown =====================
+
+static const uint32_t IDLE_TIMEOUT_MS = 10000;
+static const int16_t  TILT_IDLE_THRESHOLD = 3000;
+uint32_t last_active_ms = 0;
+
+static void enterSleep() {
+    is31.ledOffAll();
+    HAL_Delay(50);
+
+    if (pwrFlags.charging) {
+        // USB plugged: just STOP mode, can wake
+        HAL_SuspendTick();
+        HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
+    } else {
+        // Battery only: enter ship mode (shutdown)
+        HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
+        HAL_Delay(150);
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        GPIO_InitStruct.Pin = SHPACT_Pin;
+        GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+    }
+}
+
 
 void cpp_main() {
+    accel.begin(BMA530::ODR::_100HZ, BMA530::Range::_2G, BMA530::Power::LPM);
 
-    // debug.info("Testing SHPACT..., now reads: %d\r\n", HAL_GPIO_ReadPin(SHPACT_GPIO_Port, SHPACT_Pin));
-    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
-    // debug.info("SHPACT after SET: %d\r\n", HAL_GPIO_ReadPin(SHPACT_GPIO_Port, SHPACT_Pin));
-    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_RESET);
+    is31.begin();
+    is31.setPWMAll(0xFF);
+    is31.ledOnAll(39);
+    HAL_Delay(300);
+    is31.ledOffAll();
+    is31.setGCC(18);
 
-    // debug.info("Initiating %s%sBMA530%s accelerometer...\r\n", BOLD, COLOR_MAGENTA, CLR);
-    if (accel.begin(BMA530::ODR::_100HZ, BMA530::Range::_2G, BMA530::Power::LPM)) {
-        // debug.success("BMA530 accelerometer initialized.\r\n");
-    } else {
-        // debug.error("Failed to initialize BMA530 accelerometer.\r\n");
-    }
-
-    // debug.info("Initiating %s%sIS31FL3736%s LED driver...\r\n", BOLD, COLOR_RED, CLR);
-    if (is31.begin(0x39)) {
-        // debug.success("IS31FL3736 LED driver initialized.\r\n");
-        is31.setPWMAll(0xFF);
-
-        // debug.info("Testing IS31FL3736 by setting all LEDs on. GCC = 0x20... \r\n");
-        is31.ledOnAll(0x20);
-        HAL_Delay(1000);
-        is31.ledOffAll();
-    } else {
-        // debug.error("Failed to initialize IS31FL3736 LED driver.\r\n");
-    }
-
-    // debug.info("Initiating %s%sSAND SIMULATION%s ...\r\n", BOLD, COLOR_DARK_YELLOW, CLR);
+    sand.init();
     liquid.init();
-    // debug.success("SAND SIMULATION initialized. Starting simulation in 1000ms...\r\n");
-    for (uint8_t i = 0; i < 3; i++) {
-        HAL_Delay(166);
-        HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET);
-        HAL_Delay(166);
-        HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);    
-    }
+    sim = &liquid;
 
-    // sand.start();
+    // Boot animation (blocking, ~2940ms)
+    anim.start(PixPillAnim::Anim::BOOT);
+    while (anim.tick(70));
 
-    uint32_t last_active_tick = HAL_GetTick();
-    const uint32_t IDLE_TIMEOUT_MS = 10000;
-    const int16_t TILT_IDLE_THRESHOLD = 3000;
+    last_active_ms = HAL_GetTick();
 
     while (1) {
-        accel.update();
-        int16_t ax = accel.readAx(), ay = accel.readAy();
-        uint16_t tilt = abs(ax) + abs(ay);
-        uint16_t delay_ms = 100000 / (tilt + 500);
-        if (delay_ms > 200) delay_ms = 200;
-        if (delay_ms < 20)  delay_ms = 20;
+        updatePowerFlags();
 
-        if (tilt > TILT_IDLE_THRESHOLD) {
-            last_active_tick = HAL_GetTick();
-        }
-
-        if (HAL_GetTick() - last_active_tick > IDLE_TIMEOUT_MS) {
-            // debug.info("Idle timeout (%lums), shutting down...\r\n", IDLE_TIMEOUT_MS);
-            is31.ledOffAll();
-            HAL_Delay(50);
-
-            // CHG=LOW → 充电中(VBUS=ON)，船运会导致 MCU 复位，改 STOP 休眠
-            if (HAL_GPIO_ReadPin(CHG_GPIO_Port, CHG_Pin) == GPIO_PIN_RESET) {
-                // debug.info("VBUS active, entering STOP mode...\r\n");
-                HAL_SuspendTick();
-                HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
-            } else {
-                // debug.info("Battery only, entering ship mode...\r\n");
-                HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
-                HAL_Delay(150);
-                GPIO_InitTypeDef GPIO_InitStruct = {0};
-                GPIO_InitStruct.Pin = SHPACT_Pin;
-                GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-                GPIO_InitStruct.Pull = GPIO_NOPULL;
-                HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+        // ERR takes priority — flash LED array
+        if (pwrFlags.error) {
+            anim.start(PixPillAnim::Anim::ERR);
+            while (1) {
+                anim.tick();
+                HAL_Delay(16);
+                updatePowerFlags();
+                if (!pwrFlags.error) break;  // ERR cleared
+                // Blink LED_STATUS too
+                blink(100);
             }
-            while (1);
+            anim.stop();
+            // Restore from simulation after ERR clears
+            sim->draw();
         }
 
-        liquid.calc();
-        liquid.draw();
-        HAL_Delay(delay_ms);
+        // Charging indicator (non-blocking, runs alongside simulation)
+        static bool was_charging = false;
+        if (pwrFlags.charging && !was_charging) {
+            anim.start(PixPillAnim::Anim::CHARGING);
+        }
+        if (!pwrFlags.charging && was_charging) {
+            anim.stop();
+        }
+        was_charging = pwrFlags.charging;
+
+        switch (state) {
+            case DeviceState::RUNNING: {
+                accel.update();
+                int16_t ax = accel.readAx(), ay = accel.readAy();
+                uint16_t tilt = (ax > 0 ? ax : -ax) + (ay > 0 ? ay : -ay);
+
+                // Activity detection
+                if (tilt > TILT_IDLE_THRESHOLD) {
+                    last_active_ms = HAL_GetTick();
+                }
+
+                // Gesture → toggle mode
+                if (gestureDetect(ax)) {
+                    is31.ledOffAll();
+                    sim = ((sim == &liquid) ? (SimBase*)&sand : (SimBase*)&liquid);
+                }
+
+                // Run simulation (or charging animation if charging)
+                if (!pwrFlags.charging) {
+                    sim->calc();
+                    sim->draw();
+                } else {
+                    anim.tick();  // charging breathing
+                }
+
+                // Idle timeout → shutdown
+                if (HAL_GetTick() - last_active_ms > IDLE_TIMEOUT_MS) {
+                    state = DeviceState::SHUTDOWN;
+                }
+
+                // Sand needs throttling, liquid runs as fast as possible
+                if (sim == &sand && !pwrFlags.charging) {
+                    uint16_t delay_ms = 100000 / (tilt + 500);
+                    if (delay_ms > 200) delay_ms = 200;
+                    if (delay_ms < 20)  delay_ms = 20;
+                    HAL_Delay(delay_ms);
+                }
+                if (pwrFlags.charging) {
+                    HAL_Delay(30);  // charging anim frame rate
+                }
+                break;
+            }
+
+            case DeviceState::SHUTDOWN: {
+                // Shutdown animation (blocking, ~600ms)
+                anim.start(PixPillAnim::Anim::SHUTDOWN);
+                while (anim.tick()) {
+                    HAL_Delay(16);
+                }
+                enterSleep(); // Ship mode or STOP
+                while (1) { blink(500); }
+                break;
+            }
+        }
     }
 }
-
-

@@ -1,5 +1,4 @@
 #include "liquidsim.h"
-#include <cmath>
 #include <cstring>
 
 #include "inv_sqrt_table.h"
@@ -11,8 +10,8 @@ LiquidSim::LiquidSim(BMA530 &accel, IS31FL3736 &is31)
     _gravity.y = 0;
 }
 
-LiquidSim::Status LiquidSim::init() {
-    // Build LED lookup table: grid (row,col) → LED index
+SimBase::Status LiquidSim::init() {
+    // Build LED lookup table: grid (row,col) -> LED index
     memset(_led_lut, -1, sizeof(_led_lut));
     for (uint8_t led = 0; led < LIQUID_LED_COUNT; led++) {
         _led_lut[LIQUID_LED_ROW[led]][LIQUID_LED_COL[led]] = led;
@@ -53,8 +52,8 @@ void LiquidSim::_update_gravity() {
     float ax = (float)(ax_raw) / 16384.0f;
     float ay = (float)(ay_raw) / 16384.0f;
 
-    if (fabsf(ax) < 0.03f) ax = 0;
-    if (fabsf(ay) < 0.03f) ay = 0;
+    if (ax < 0.03f && ax > -0.03f) ax = 0;
+    if (ay < 0.03f && ay > -0.03f) ay = 0;
 
     _gravity.x = -ay * LIQUID_GRAVITY_SCALE;
     _gravity.y = ax * LIQUID_GRAVITY_SCALE;
@@ -63,8 +62,8 @@ void LiquidSim::_update_gravity() {
 /*
  * Continuous bevel boundary: capsule-shaped container
  * Top: y 0→1.5, width 2→5; Mid: y 1.5→15.5, full width 0→5
- * Bottom: y 15.5→17, width 5→2 (funnel to narrow neck)
- *
+ * Bottom: y 15.5→17, width 5→2
+ * 
  * (Visualized in visual_simulation.py)
  */
 void LiquidSim::_get_boundary(float y, float &left, float &right) {
@@ -167,17 +166,9 @@ void LiquidSim::_process_collisions() {
                 }
 
                 if (dist_sq < min_dist_sq) {
-                    // Fallback to sqrtf for very close particles (LUT inaccurate)
-                    float inv_dist, dist;
-                    if (dist_sq < 0.05f) {
-                        dist = sqrtf(dist_sq);
-                        inv_dist = 1.0f / dist;
-                    } else {
-                        uint16_t idx = (uint16_t)(dist_sq * 500.0f);
-                        if (idx >= INV_SQRT_TABLE_SIZE) idx = INV_SQRT_TABLE_SIZE - 1;
-                        inv_dist = inv_sqrt_table[idx]; // (LUT for sqrt)
-                        dist = 1.0f / inv_dist;
-                    }
+                    // LUT-based 1/sqrt(dist_sq) (256 entries, 512 bytes total)
+                    float inv_dist = inv_sqrt_lookup(dist_sq);
+                    float dist = 1.0f / inv_dist;
 
                     float ex = dx * inv_dist;
                     float ey = dy * inv_dist;
@@ -221,16 +212,8 @@ void LiquidSim::_process_collisions() {
                 float dist_sq = dx * dx + dy * dy;
 
                 if (dist_sq >= min_dist_sq && dist_sq < attract_sq) {
-                    float inv_dist, dist;
-                    if (dist_sq < 0.05f) {
-                        dist = sqrtf(dist_sq);
-                        inv_dist = 1.0f / dist;
-                    } else {
-                        uint16_t idx = (uint16_t)(dist_sq * 500.0f);
-                        if (idx >= INV_SQRT_TABLE_SIZE) idx = INV_SQRT_TABLE_SIZE - 1;
-                        inv_dist = inv_sqrt_table[idx];
-                        dist = 1.0f / inv_dist;
-                    }
+                    float inv_dist = inv_sqrt_lookup(dist_sq);
+                    float dist = 1.0f / inv_dist;
 
                     float ex = dx * inv_dist;
                     float ey = dy * inv_dist;
@@ -340,7 +323,7 @@ void LiquidSim::_compute_density(float density[18][6]) {
     }
 }
 
-LiquidSim::Status LiquidSim::calc() {
+SimBase::Status LiquidSim::calc() {
     _update_gravity();
 
     float dt_sub = LIQUID_DT / (float)SUBSTEPS;
@@ -349,7 +332,7 @@ LiquidSim::Status LiquidSim::calc() {
         _process_collisions();
     }
 
-    // Density field → LED buffer
+    // Density field -> LED buffer
     float density[18][6];
     _compute_density(density);
 
@@ -370,7 +353,7 @@ LiquidSim::Status LiquidSim::calc() {
     return Status::OK;
 }
 
-LiquidSim::Status LiquidSim::draw() {
+SimBase::Status LiquidSim::draw() {
     bool ok = true;
     for (uint8_t i = 0; i < 96; i++) {
         uint8_t sw = (i % 12) + 1;

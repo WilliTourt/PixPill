@@ -7,7 +7,7 @@ SandSim::SandSim(BMA530 &accel, IS31FL3736 &is31) :
     memset(_sand_prev, 0, sizeof(_sand_prev));
 }
 
-SandSim::Status SandSim::init() {
+SimBase::Status SandSim::init() {
     _sand_now[0] = 1;
     _sand_now[1] = 1;
     _sand_now[2] = 1;
@@ -35,14 +35,14 @@ SandSim::Status SandSim::init() {
     return Status::OK;
 }
 
-// SandSim::Status SandSim::start() {
+// SimBase::Status SandSim::start() {
 //     return Status::OK;
 // }
 
-SandSim::Status SandSim::calc() {
+SimBase::Status SandSim::calc() {
     _backup_sand_array();
 
-    // BMA530 Orientation: X+ → row0(top)   Y+ → col0(left)   Z+ → Ax(Vector)*Ay(Vector) (up)
+    // BMA530 Orientation: X+ -> row0(top)   Y+ -> col0(left)   Z+ -> Ax(Vector)*Ay(Vector) (up)
     int16_t ax, ay;
     Status status = _accel.update() ? Status::OK : Status::ERR_ACCEL;
     ax = -_accel.readAx();
@@ -126,7 +126,7 @@ SandSim::Status SandSim::calc() {
 }
 
 /*
-SandSim::Status SandSim::calc() {
+SimBase::Status SandSim::calc() {
     _backup_sand_array();
 
     // Start scanning
@@ -172,7 +172,8 @@ SandSim::Status SandSim::calc() {
 }
 */
 
-SandSim::Status SandSim::draw() {
+SimBase::Status SandSim::draw() {
+    _is31.setPWMAll(0xff);
     for (uint8_t i = 0; i < 96; i++) {
         uint8_t sw = (i % 12) + 1;
         uint8_t cs = (i / 12) + 1;

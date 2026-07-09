@@ -3,24 +3,16 @@
 #include "main.h"
 #include "is31fl3736.h"
 #include "bma530.h"
+#include "sim_base.h"
 
 #include "pixpill_neighbors_table.h"
 
-class SandSim {
+class SandSim : public SimBase {
     public:
-
-        enum class Status {
-            OK,
-            ERR_ACCEL,
-            ERR_LED,
-            ERR
-        };
 
         SandSim(BMA530 &accel, IS31FL3736 &is31);
 
         Status init();
-
-        // Status start();
         Status calc();
         Status draw();
 

@@ -3,6 +3,7 @@
 #include "main.h"
 #include "is31fl3736.h"
 #include "bma530.h"
+#include "sim_base.h"
 
 // Numbers of Particles
 #define LIQUID_PARTICLE_COUNT               16
@@ -11,18 +12,18 @@
 #define SUBSTEPS                            2      // more substeps = more stable but slower
 
 // Fluid Physics
-#define LIQUID_DAMPING                      0.97f  // global damping factor for velocity
-#define LIQUID_GRAVITY_SCALE                1.55f  // gravity strength
+#define LIQUID_DAMPING                      0.88f  // global damping factor for velocity
+#define LIQUID_GRAVITY_SCALE                1.4f  // gravity strength
 #define LIQUID_DT                           1.0f   // frame duration, too fast will cause instability
 
 // Collisions
-#define LIQUID_MIN_DIST                     1.29f  // Expected minimum distance between particles (for collision detection)
-#define LIQUID_COLLISION_DAMPING            0.7f   // collision momentum exchange damping
+#define LIQUID_MIN_DIST                     1.24f  // Expected minimum distance between particles (for collision detection)
+#define LIQUID_COLLISION_DAMPING            0.5f   // collision momentum exchange damping
 #define LIQUID_COLLISIONS_ITERS             1      // number of position pushes per substep
 
 // Surface tension (NOW CLOSED FOR PERFORMANCE)
 #define LIQUID_ATTRACT_STRENGTH             0.0f   // Attract strength
-#define LIQUID_ATTRACT_RADIUS               1.8f   // Distance at which attraction starts
+#define LIQUID_ATTRACT_RADIUS               1.80f   // Distance at which attraction starts
 
 // Walls
 #define WALL_PUSH_MARGIN                    0.3f   // Distance from wall before pushing
@@ -33,7 +34,7 @@
 #define DENSITY_PER_PARTICLE                270.0f // Contribution of each particle to the density field
 
 // Density Force
-#define LIQUID_DENSITY_PRESSURE_THRESHOLD   92.0f  // Density threshold for triggering pressure force
+#define LIQUID_DENSITY_PRESSURE_THRESHOLD   95.0f  // Density threshold for triggering pressure force
 #define LIQUID_PRESSURE_STRENGTH            3.6f   // Density pressure force
 
 // Grid
@@ -85,35 +86,29 @@ static const int8_t LIQUID_LED_COL[LIQUID_LED_COUNT] = {
 
 // LED grid mask — valid cells for density field and particle placement
 static const bool LIQUID_LED_MASK[18][6] = {
-    {0,0,1,1,0,0},
-    {0,1,1,1,1,0},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {1,1,1,1,1,1},
-    {0,1,1,1,1,0},
-    {0,0,1,1,0,0}
+    { 0,0,1,1,0,0 },
+    { 0,1,1,1,1,0 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 0,1,1,1,1,0 },
+    { 0,0,1,1,0,0 }
 };
 
 
-class LiquidSim {
+class LiquidSim : public SimBase {
     public:
-        enum class Status {
-            OK,
-            ERR_ACCEL,
-            ERR
-        };
-
         typedef struct {
             float x, y;
             float vx, vy;
@@ -124,6 +119,7 @@ class LiquidSim {
         } Vector_t;
 
         LiquidSim(BMA530 &accel, IS31FL3736 &is31);
+
         Status init();
         Status calc();
         Status draw();

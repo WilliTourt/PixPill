@@ -10,19 +10,19 @@ from matplotlib.patches import Rectangle
 import numpy as np
 
 # ==================== Parameters ====================
-LIQUID_PARTICLE_COUNT = 16
+LIQUID_PARTICLE_COUNT = 24
 
 # --- Numerical Integration ---
 SUBSTEPS = 2
 
 # --- Fluid Physics ---
-LIQUID_DAMPING = 0.97
+LIQUID_DAMPING = 0.88
 LIQUID_GRAVITY_SCALE = 1.55
 LIQUID_DT = 1.0
 
 # --- Particle Collision ---
 LIQUID_MIN_DIST = 1.29
-LIQUID_COLLISION_DAMPING = 0.7
+LIQUID_COLLISION_DAMPING = 0.5
 LIQUID_COLLISIONS_ITERS = 1
 
 # --- Surface Tension ---
@@ -37,7 +37,7 @@ WALL_PUSH_STRENGTH = 1.4
 DENSITY_MAX_BRIGHTNESS = 255.0
 DENSITY_PER_PARTICLE = 270.0  # Total contribution per particle to nearby cells
 
-LIQUID_DENSITY_PRESSURE_THRESHOLD = 92.0
+LIQUID_DENSITY_PRESSURE_THRESHOLD = 95.0
 LIQUID_PRESSURE_FORCE = 3.6
 
 ROWS, COLS = 18, 6
