@@ -64,7 +64,7 @@ void LiquidSim::_update_gravity() {
  * Top: y 0→1.5, width 2→5; Mid: y 1.5→15.5, full width 0→5
  * Bottom: y 15.5→17, width 5→2
  * 
- * (Visualized in visual_simulation.py)
+ * (Visualized in liquid_visual_sim.py)
  */
 void LiquidSim::_get_boundary(float y, float &left, float &right) {
     if (y <= 1.5f) {

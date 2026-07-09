@@ -53,7 +53,7 @@ SimBase::Status SandSim::calc() {
     uint8_t g_dirs[2];  // { Main gravity component, Submain gravity component }
     bool reverse;       // Scan direction: true=forward, false=reverse
 
-    if (_abs(ay) > _abs(ax)) { // means Y is the dominant direction, we choose left-right scan
+    if (_abs(ay) > _abs(ax)) { // Y is the dominant direction, choose left-right scan
         scan_order = SCAN_ORDER_GRAVITY_RIGHT;
         g_dirs[0] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
         g_dirs[1] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
@@ -99,7 +99,7 @@ SimBase::Status SandSim::calc() {
         if (_sand_now[main_neighbor] == 0) {
             _sand_now[main_neighbor] = 1;
         } else {
-            // if blocked, try sliding along the two perpendicular directions
+            // if blocked, try sliding along two perpendicular directions
             int8_t slide_a = LED_NEIGHBORS[main_neighbor][g_dirs[1]];      // side A
             int8_t slide_b = LED_NEIGHBORS[main_neighbor][g_dirs[1] ^ 1];  // side B (opposite)
 
