@@ -336,9 +336,6 @@ ax_particles.plot(left_pts, y_pts, 'r-', alpha=0.8, lw=1.5)
 ax_particles.plot(right_pts, y_pts, 'r-', alpha=0.8, lw=1.5)
 scatter = ax_particles.scatter([], [], c='#00ccff', s=80, alpha=0.9,
                                 edgecolors='white', linewidth=0.5)
-# 重力方向指示箭头
-g_arrow = ax_particles.arrow(5.2, 1, 0, 0, head_width=0.3, head_length=0.3,
-                              fc='yellow', ec='yellow', alpha=0.8)
 
 
 
