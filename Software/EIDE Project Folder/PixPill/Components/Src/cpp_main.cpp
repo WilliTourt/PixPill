@@ -20,7 +20,7 @@
  * 
  *   Memory region         Used Size  Region Size  %age Used
  *                RAM:        2872 B         6 KB     46.74%
- *              FLASH:       32084 B        32 KB     97.91%
+ *              FLASH:       32100 B        32 KB     97.96%
  *
  * @author:     WilliTourt <willitourt@foxmail.com>
  * @date        2026-07-10
@@ -48,10 +48,10 @@ enum class DeviceState : uint8_t {
     SHUTDOWN   // Ship mode / stop
 };
 
-enum class SimMode : uint8_t {
-    SAND,
-    LIQUID
-};
+// enum class SimMode : uint8_t {
+//     SAND,
+//     LIQUID
+// };
 
 struct PwrFlags {
     bool charging; // USB plugged
@@ -61,7 +61,6 @@ struct PwrFlags {
 // ===================== Globals =====================
 
 DeviceState state = DeviceState::RUNNING;
-SimMode simMode = SimMode::LIQUID;
 PwrFlags pwrFlags = {false, false};
 
 BMA530 accel(&hi2c1);
@@ -78,7 +77,6 @@ PixPillAnim anim(is31);
 static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
 static const uint32_t SHAKE_WINDOW_MS = 570;    // time window for gesture
 
-int16_t  last_ax = 0;
 uint8_t  shake_count = 0;
 uint32_t shake_first_ms = 0;
 bool     shake_positive = false;  // true = current direction is positive
@@ -124,8 +122,6 @@ static void updatePowerFlags() {
 
 // ===================== LED Status PWM Ctrl =====================
 
-static const uint16_t LED_PWM_MAX = 999;  // TIM3 ARR (100Hz)
-
 // 64-step sin² lookup for smooth breathing (~2.5s cycle at 25ms/call)
 static const uint8_t BREATH_LUT[64] = {
     0,  1,  3,  8, 15, 24, 35, 48,
@@ -145,7 +141,7 @@ static void breathLed() {
     if (now - last_ms < 25) return;
     last_ms = now;
 
-    uint16_t pwm = (uint16_t)BREATH_LUT[step] * LED_PWM_MAX / 255;
+    uint16_t pwm = (uint16_t)BREATH_LUT[step] * 999 / 255; // 999: ARR - 1
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, pwm);
     step = (step + 1) & 63;
 }
@@ -158,8 +154,7 @@ static void blinkLedFast() {
     if (now - led_last_toggle_ms >= 100) {
         led_last_toggle_ms = now;
         led_on = !led_on;
-        HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin,
-                          (led_on ? GPIO_PIN_SET : GPIO_PIN_RESET));
+        __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (led_on ? 999 : 0));
     }
 }
 
@@ -184,13 +179,10 @@ static void enterSleep() {
         HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_2);
     }
     // Enter ship mode (shutdown)
+    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_RESET);
+    HAL_Delay(100);
     HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
-    HAL_Delay(250);
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = SHPACT_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+    HAL_Delay(1000);
 
     HAL_SuspendTick();
     HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
@@ -202,9 +194,13 @@ void cpp_main() {
 
     is31.begin();
     is31.setPWMAll(0xFF);
-    is31.ledOnAll(39);
+
+    is31.ledOnAll(45);
+    // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET);
     HAL_Delay(300);
     is31.ledOffAll();
+    // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
+
     is31.setGCC(18);
 
     sand.init();
@@ -223,7 +219,8 @@ void cpp_main() {
         // ERR takes priority — flash LED array
         if (pwrFlags.error) {
             anim.start(PixPillAnim::Anim::ERR);
-            while (1) {
+            while (pwrFlags.error) {
+                HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
                 anim.tick();
                 HAL_Delay(16);
                 updatePowerFlags();
@@ -231,6 +228,7 @@ void cpp_main() {
                 // Blink LED_STATUS too
                 blinkLedFast();
             }
+            HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_2);
             anim.stop();
             // Restore from simulation after ERR clears
             sim->draw();
@@ -295,7 +293,7 @@ void cpp_main() {
                     state = DeviceState::SHUTDOWN;
                 }
 
-                // Sand needs throttling, liquid runs as fast as possible
+                // Sand needs speed limit, liquid runs as fast as possible
                 if (sim == &sand && !pwrFlags.charging) {
                     uint16_t delay_ms = 100000 / (tilt + 500);
                     if (delay_ms > 200) delay_ms = 200;

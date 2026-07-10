@@ -100,6 +100,7 @@ bool PixPillAnim::_tick_boot(uint32_t elapsed, uint16_t ms_per_col) {
 
     // Draw bitmap at current scroll position
     for (uint8_t col = 0; col < 6; col++) {
+
         // bitmap column index
         int16_t bmp_col = (int16_t)offset - (5 - col);
         if (bmp_col < 0 || bmp_col >= SCROLL_NUM_COLS) continue;
@@ -120,7 +121,7 @@ bool PixPillAnim::_tick_boot(uint32_t elapsed, uint16_t ms_per_col) {
 }
 
 // ===================== Shutdown Animation =====================
-// Full bright → rows fade from top (row 0) down to bottom (row 17), ~600ms
+// Full bright -> rows fade from top (row 0) down to bottom (row 17), ~600ms
 
 bool PixPillAnim::_tick_shutdown(uint32_t elapsed) {
     if (elapsed >= 600) {
@@ -128,8 +129,8 @@ bool PixPillAnim::_tick_shutdown(uint32_t elapsed) {
         return false;  // done
     }
 
-    float progress = (float)elapsed / 600.0f;  // 0→1
-    // Row that's currently being erased (0→17)
+    float progress = (float)elapsed / 600.0f;  // 0 -> 1
+    // Row that's currently being erased (0 -> 17)
     uint8_t erase_row = (uint8_t)(progress * 17.0f);
 
     for (uint8_t r = 0; r < 18; r++) {
