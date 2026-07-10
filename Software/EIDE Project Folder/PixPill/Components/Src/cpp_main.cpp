@@ -1,3 +1,31 @@
+/*******************************************************************************
+ * @file    cpp_main.cpp
+ * @version 1.0
+ * 
+ * @brief   PixPill firmware — application entry point and main loop.
+ *
+ * @details
+ * PixPill is a pill-sized LED matrix gadget built around STM32C011 (WLCSP12),
+ * BMA530 accelerometer, IS31FL3736 LED driver, and nPM1100 PMIC.
+ *
+ * The firmware simulates physical particles (sand / liquid) on a 96-LED
+ * array in real time, reacting to gravity from the BMA530. A quick
+ * shake gesture toggles between sand and liquid modes.
+ *
+ * ARCHITECTURE:
+ * - Driver: `bma530` (I²C accel), `is31fl3736` (I²C LED matrix)
+ * - Simulation: `SimBase` → `SandSim` (cellular automata sim) / `LiquidSim` (physically-based particle sims)
+ * - Animation: `PixPillAnim` (boot / charging / error / shutdown)
+ * - Power: nPM1100 ship-mode(shutdown) via SHPACT; CHG/ERR pin monitoring
+ * 
+ * Memory region   Used Size  Region Size  %age Used
+ *           RAM:     2744 B         6 KB     44.66%
+ *         FLASH:    31072 B        32 KB     94.82%
+ *
+ * @author:     WilliTourt <willitourt@foxmail.com>
+ * @date        2026-07-10
+ ******************************************************************************/
+
 #include "cpp_main.h"
 
 #include "bma530.h"
@@ -43,7 +71,7 @@ PixPillAnim anim(is31);
 // Detect a quick left-right-left-right shake (4 direction changes in 500ms)
 
 static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
-static const uint32_t SHAKE_WINDOW_MS = 300;    // time window for gesture
+static const uint32_t SHAKE_WINDOW_MS = 570;    // time window for gesture
 
 int16_t  last_ax = 0;
 uint8_t  shake_count = 0;
@@ -74,7 +102,7 @@ static bool gestureDetect(int16_t ax) {
     shake_positive = new_dir;
     shake_count++;
 
-    if (shake_count >= 4) {
+    if (shake_count >= 8) {
         shake_count = 0;
         return true;
     }
