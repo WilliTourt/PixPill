@@ -6,7 +6,7 @@ PixPillAnim::PixPillAnim(IS31FL3736 &is31)
     : _is31(is31) {}
 
 void PixPillAnim::start(Anim anim) {
-    _clear_all();
+    _is31.ledOffAll();
     _current = anim;
     _start_ms = HAL_GetTick();
 }
@@ -32,7 +32,7 @@ bool PixPillAnim::tick(uint16_t ms_per_frame) {
 }
 
 void PixPillAnim::stop() {
-    _clear_all();
+    _is31.ledOffAll();
     _current = Anim::NONE;
 }
 
@@ -91,12 +91,12 @@ bool PixPillAnim::_tick_boot(uint32_t elapsed, uint16_t ms_per_col) {
     uint32_t max_ms = total_cols * ms_per_col;
 
     if (elapsed >= max_ms) {
-        _clear_all();
+        _is31.ledOffAll();
         return false;  // done
     }
 
     uint32_t offset = elapsed / ms_per_col;
-    _clear_all();
+    _is31.ledOffAll();
 
     // Draw bitmap at current scroll position
     for (uint8_t col = 0; col < 6; col++) {
@@ -124,7 +124,7 @@ bool PixPillAnim::_tick_boot(uint32_t elapsed, uint16_t ms_per_col) {
 
 bool PixPillAnim::_tick_shutdown(uint32_t elapsed) {
     if (elapsed >= 600) {
-        _clear_all();
+        _is31.ledOffAll();
         return false;  // done
     }
 
@@ -158,6 +158,7 @@ static const uint32_t ERR_BITMAP[6] = {
 };
 
 bool PixPillAnim::_tick_err(uint32_t elapsed) {
+    if (!_lut_ready) _init_lut();
     uint32_t cycle = elapsed % 500;  // 500ms cycle
     _is31.setPWMAll(0xff);
     if (cycle < 250) {
@@ -166,20 +167,12 @@ bool PixPillAnim::_tick_err(uint32_t elapsed) {
             for (uint8_t row = 0; row < 18; row++) {
                 if (bits & (1UL << (17 - row))) {
                     if (!LIQUID_LED_MASK[row][col]) continue;
-                    // Find LED index from row/col (same as LiquidSim draw)
-                    for (uint8_t led = 0; led < 96; led++) {
-                        if (LIQUID_LED_ROW[led] == row && LIQUID_LED_COL[led] == col) {
-                            uint8_t cs = (led / 12) + 1;
-                            uint8_t sw = (led % 12) + 1;
-                            _is31.ledOn(cs, sw);
-                            break;
-                        }
-                    }
+                    _led_set_pwm(row, col, 0xff);
                 }
             }
         }
     } else {
-        _clear_all();
+        _is31.ledOffAll();
     }
     return true;  // ERR never self-terminates, must call stop()
 }
@@ -219,50 +212,54 @@ bool PixPillAnim::_tick_charging(uint32_t elapsed) {
     return true;  // CHARGING never self-terminates
 }
 
-// ===================== Helpers =====================
 
-void PixPillAnim::_set_all_pwm(uint8_t val) {
+
+// LED index lut
+// -1 = invalid cell (outside pill shape)
+int8_t PixPillAnim::_row_col_to_led[18][6];
+bool   PixPillAnim::_lut_ready = false;
+
+void PixPillAnim::_init_lut() {
+    memset(_row_col_to_led, -1, sizeof(_row_col_to_led));
     for (uint8_t i = 0; i < 96; i++) {
-        uint8_t cs = (i / 12) + 1;
-        uint8_t sw = (i % 12) + 1;
-        _is31.setPWM(cs, sw, val);
-        val > 0 ? _is31.ledOn(cs, sw) : _is31.ledOff(cs, sw);
+        _row_col_to_led[LIQUID_LED_ROW[i]][LIQUID_LED_COL[i]] = (int8_t)i;
+    }
+    _lut_ready = true;
+}
+
+void PixPillAnim::_led_set_pwm(uint8_t row, uint8_t col, uint8_t pwm) {
+    int8_t led = _row_col_to_led[row][col];
+    if (led < 0) return;
+    
+    uint8_t cs = (led / 12) + 1;
+    uint8_t sw = (led % 12) + 1;
+
+    _is31.setPWM(cs, sw, pwm);
+    if (pwm > 0) {
+        _is31.ledOn(cs, sw);
+    } else {
+        _is31.ledOff(cs, sw);
     }
 }
 
 void PixPillAnim::_set_pixel(uint8_t row, uint8_t col, uint8_t pwm) {
-    // Find LED index from grid position
-    // This is O(96) per pixel... but animations are short and simple
-    for (uint8_t i = 0; i < 96; i++) {
-        if (LIQUID_LED_ROW[i] == row && LIQUID_LED_COL[i] == col) {
-            uint8_t cs = (i / 12) + 1;
-            uint8_t sw = (i % 12) + 1;
-            _is31.setPWM(cs, sw, pwm);
-            pwm > 0 ? _is31.ledOn(cs, sw) : _is31.ledOff(cs, sw);
-            return;
-        }
+    if (!_lut_ready) {
+        _init_lut();
     }
-}
-
-void PixPillAnim::_clear_all() {
-    _is31.ledOffAll();
+    _led_set_pwm(row, col, pwm);
 }
 
 void PixPillAnim::_draw_bitmap(const uint32_t bitmap[6], uint8_t pwm) {
+    if (!_lut_ready) {
+        _init_lut();
+    }
+
     for (uint8_t col = 0; col < 6; col++) {
         uint32_t bits = bitmap[col];
         for (uint8_t row = 0; row < 18; row++) {
             if (!(bits & (1UL << (17 - row)))) continue;
             if (!LIQUID_LED_MASK[row][col]) continue;
-            for (uint8_t led = 0; led < 96; led++) {
-                if (LIQUID_LED_ROW[led] == row && LIQUID_LED_COL[led] == col) {
-                    uint8_t cs = (led / 12) + 1;
-                    uint8_t sw = (led % 12) + 1;
-                    _is31.setPWM(cs, sw, pwm);
-                    if (pwm > 0) _is31.ledOn(cs, sw);
-                    break;
-                }
-            }
+            _led_set_pwm(row, col, pwm);
         }
     }
 }

@@ -18,15 +18,20 @@
  * - Animation: `PixPillAnim` (boot / charging / error / shutdown)
  * - Power: nPM1100 ship-mode(shutdown) via SHPACT; CHG/ERR pin monitoring
  * 
- * Memory region   Used Size  Region Size  %age Used
- *           RAM:     2744 B         6 KB     44.66%
- *         FLASH:    31072 B        32 KB     94.82%
+ *   Memory region         Used Size  Region Size  %age Used
+ *                RAM:        2872 B         6 KB     46.74%
+ *              FLASH:       32084 B        32 KB     97.91%
  *
  * @author:     WilliTourt <willitourt@foxmail.com>
  * @date        2026-07-10
+ * 
+ * @changelog:
+ * - 2026-07-10: Initial version
+ * 
  ******************************************************************************/
 
 #include "cpp_main.h"
+#include "tim.h"
 
 #include "bma530.h"
 #include "is31fl3736.h"
@@ -114,50 +119,81 @@ static bool gestureDetect(int16_t ax) {
 
 static void updatePowerFlags() {
     pwrFlags.charging = (HAL_GPIO_ReadPin(CHG_GPIO_Port, CHG_Pin) == GPIO_PIN_RESET);
-    pwrFlags.error   = (HAL_GPIO_ReadPin(ERR_GPIO_Port, ERR_Pin) == GPIO_PIN_RESET);
+    pwrFlags.error    = (HAL_GPIO_ReadPin(ERR_GPIO_Port, ERR_Pin) == GPIO_PIN_RESET);
 }
 
-// ===================== LED Status Blink =====================
+// ===================== LED Status PWM Ctrl =====================
 
-static uint32_t led_last_toggle_ms = 0;
-static bool     led_on = false;
+static const uint16_t LED_PWM_MAX = 999;  // TIM3 ARR (100Hz)
 
-static void blink(uint32_t interval_ms) {
+// 64-step sin² lookup for smooth breathing (~2.5s cycle at 25ms/call)
+static const uint8_t BREATH_LUT[64] = {
+    0,  1,  3,  8, 15, 24, 35, 48,
+   63, 80, 98,118,139,161,184,208,
+  232,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,
+  255,232,208,184,161,139,118, 98,
+   80, 63, 48, 35, 24, 15,  8,  3,
+    1,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0
+};
+
+static void breathLed() {
+    static uint8_t  step = 0;
+    static uint32_t last_ms = 0;
     uint32_t now = HAL_GetTick();
-    if (now - led_last_toggle_ms >= interval_ms) {
+    if (now - last_ms < 25) return;
+    last_ms = now;
+
+    uint16_t pwm = (uint16_t)BREATH_LUT[step] * LED_PWM_MAX / 255;
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, pwm);
+    step = (step + 1) & 63;
+}
+
+// ERR mode: fast blink
+static void blinkLedFast() {
+    static uint32_t led_last_toggle_ms = 0;
+    static bool     led_on = false;
+    uint32_t now = HAL_GetTick();
+    if (now - led_last_toggle_ms >= 100) {
         led_last_toggle_ms = now;
         led_on = !led_on;
         HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin,
-                          led_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                          (led_on ? GPIO_PIN_SET : GPIO_PIN_RESET));
     }
 }
 
-// ===================== LED Array Animations (moved to pixpill_anim.cpp) =====================
-
 // ===================== Sleep / Shutdown =====================
 
-static const uint32_t IDLE_TIMEOUT_MS = 10000;
-static const int16_t  TILT_IDLE_THRESHOLD = 3000;
+static const uint32_t IDLE_TIMEOUT_MS = 22000;
+static const int16_t  MOTION_DELTA_THRESHOLD = 500;  // min accel change to count as "moving"
 uint32_t last_active_ms = 0;
+int16_t  prev_ax_idle = 0, prev_ay_idle = 0;  // previous accel for idle detection
 
 static void enterSleep() {
     is31.ledOffAll();
     HAL_Delay(50);
 
     if (pwrFlags.charging) {
-        // USB plugged: just STOP mode, can wake
-        HAL_SuspendTick();
-        HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
-    } else {
-        // Battery only: enter ship mode (shutdown)
-        HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
-        HAL_Delay(150);
-        GPIO_InitTypeDef GPIO_InitStruct = {0};
-        GPIO_InitStruct.Pin = SHPACT_Pin;
-        GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+        while (pwrFlags.charging) {
+            updatePowerFlags();
+            breathLed();
+            HAL_Delay(50);
+        }
+
+        HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_2);
     }
+    // Enter ship mode (shutdown)
+    HAL_GPIO_WritePin(SHPACT_GPIO_Port, SHPACT_Pin, GPIO_PIN_SET);
+    HAL_Delay(250);
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = SHPACT_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(SHPACT_GPIO_Port, &GPIO_InitStruct);
+
+    HAL_SuspendTick();
+    HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
 }
 
 
@@ -175,9 +211,9 @@ void cpp_main() {
     liquid.init();
     sim = &liquid;
 
-    // Boot animation (blocking, ~2730ms)
+    // Boot animation (blocking, ~2436ms)
     anim.start(PixPillAnim::Anim::BOOT);
-    while (anim.tick(65));
+    while (anim.tick(58));
 
     last_active_ms = HAL_GetTick();
 
@@ -193,20 +229,36 @@ void cpp_main() {
                 updatePowerFlags();
                 if (!pwrFlags.error) break;  // ERR cleared
                 // Blink LED_STATUS too
-                blink(100);
+                blinkLedFast();
             }
             anim.stop();
             // Restore from simulation after ERR clears
             sim->draw();
         }
 
-        // Charging indicator (non-blocking, runs alongside simulation)
-        static bool was_charging = false;
+        // Charging indicator — play anim for 4s, then resume simulation
+        static bool     was_charging      = false;
+        static uint32_t charge_anim_start = 0;
+        static bool     charge_anim_done  = false;
+
         if (pwrFlags.charging && !was_charging) {
             anim.start(PixPillAnim::Anim::CHARGING);
+            HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+            charge_anim_start = HAL_GetTick();
+            charge_anim_done  = false;
         }
+
         if (!pwrFlags.charging && was_charging) {
             anim.stop();
+            HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_2);
+            HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
+            charge_anim_done = false;
+        }
+
+        if (pwrFlags.charging && !charge_anim_done &&
+            HAL_GetTick() - charge_anim_start > 4000) {
+            anim.stop();
+            charge_anim_done = true;
         }
         was_charging = pwrFlags.charging;
 
@@ -216,10 +268,13 @@ void cpp_main() {
                 int16_t ax = accel.readAx(), ay = accel.readAy();
                 uint16_t tilt = (ax > 0 ? ax : -ax) + (ay > 0 ? ay : -ay);
 
-                // Activity detection
-                if (tilt > TILT_IDLE_THRESHOLD) {
+                // Activity detection — any accel change counts as "moving"
+                int16_t dax = ax - prev_ax_idle, day = ay - prev_ay_idle;
+                if ((dax > 0 ? dax : -dax) + (day > 0 ? day : -day) > MOTION_DELTA_THRESHOLD) {
                     last_active_ms = HAL_GetTick();
                 }
+                prev_ax_idle = ax;
+                prev_ay_idle = ay;
 
                 // Gesture → toggle mode
                 if (gestureDetect(ax)) {
@@ -227,8 +282,8 @@ void cpp_main() {
                     sim = ((sim == &liquid) ? (SimBase*)&sand : (SimBase*)&liquid);
                 }
 
-                // Run simulation (or charging animation if charging)
-                if (!pwrFlags.charging) {
+                // Run simulation (or charging animation for first 4s)
+                if (!pwrFlags.charging || charge_anim_done) {
                     sim->calc();
                     sim->draw();
                 } else {
@@ -247,8 +302,9 @@ void cpp_main() {
                     if (delay_ms < 20)  delay_ms = 20;
                     HAL_Delay(delay_ms);
                 }
+
                 if (pwrFlags.charging) {
-                    HAL_Delay(30);  // charging anim frame rate
+                    breathLed();
                 }
                 break;
             }
@@ -260,7 +316,7 @@ void cpp_main() {
                     HAL_Delay(16);
                 }
                 enterSleep(); // Ship mode or STOP
-                while (1) { blink(500); }
+                while (1);
                 break;
             }
         }
