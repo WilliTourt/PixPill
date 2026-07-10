@@ -1,43 +1,23 @@
 #include "sandsim.h"
 #include <cstring>
 
-SandSim::SandSim(BMA530 &accel, IS31FL3736 &is31) :
-    _accel(accel), _is31(is31), _random(131) {
+SandSim::SandSim(BMA530 &accel, IS31FL3736 &is31, uint8_t sand_num) :
+    _accel(accel), _is31(is31), _sand_num(sand_num), _random(131) {
     memset(_sand_now, 0, sizeof(_sand_now));
     memset(_sand_prev, 0, sizeof(_sand_prev));
 }
 
 SimBase::Status SandSim::init() {
-    _sand_now[0] = 1;
-    _sand_now[1] = 1;
-    _sand_now[2] = 1;
-    _sand_now[6] = 1;
-    _sand_now[18] = 1;
-    _sand_now[19] = 1;
-    _sand_now[24] = 1;
-    _sand_now[25] = 1;
-    _sand_now[31] = 1;
-    _sand_now[4] = 1;
-    _sand_now[5] = 1;
-    _sand_now[8] = 1;
-    _sand_now[9] = 1;
-    _sand_now[10] = 1;
-    _sand_now[16] = 1;
-    _sand_now[17] = 1;
-    _sand_now[23] = 1;
-    _sand_now[65] = 1;
-    _sand_now[67] = 1;
-    _sand_now[68] = 1;
-    _sand_now[71] = 1;
-    _sand_now[72] = 1;
-    _sand_now[74] = 1;
-    _sand_now[95] = 1;
+    for (uint8_t i = 0; i < _sand_num; i++) {
+        uint8_t idx;
+        do {
+            _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
+            idx = _random % 96;
+        } while (_sand_now[idx] != 0);
+        _sand_now[idx] = 1;
+    }
     return Status::OK;
 }
-
-// SimBase::Status SandSim::start() {
-//     return Status::OK;
-// }
 
 SimBase::Status SandSim::calc() {
     _backup_sand_array();
@@ -48,21 +28,66 @@ SimBase::Status SandSim::calc() {
     ax = -_accel.readAx();
     ay = _accel.readAy();
 
-    // The gravity direction is the direction we will scan first
+    // Determine 8-sector gravity direction first
     const uint8_t* scan_order;
-    uint8_t g_dirs[2];  // { Main gravity component, Submain gravity component }
-    bool reverse;       // Scan direction: true=forward, false=reverse
+    uint8_t g_dirs[3];  // { main direction, side_a, side_b }
+    /*
+    g_dirs explanation ('O' shape = sand particle):
 
-    if (_abs(ay) > _abs(ax)) { // Y is the dominant direction, choose left-right scan
-        scan_order = SCAN_ORDER_GRAVITY_RIGHT;
-        g_dirs[0] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
-        g_dirs[1] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
-        reverse = (ay < 0);   // reverse the scan order, scan left to right while still using SCAN_ORDER_GRAVITY_RIGHT
-    } else { // X is dominant
-        scan_order = SCAN_ORDER_GRAVITY_DOWN;
-        g_dirs[0] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
-        g_dirs[1] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
-        reverse = (ax > 0);
+        Orthogonal:                     Diagonal:
+        +-----+-----+-----+             +-----+-----+-----+
+        |     |  O  |     |             |  a  |  O  |     |
+        +-----+--?--+-----+             +-----?-----+-----+ 
+        |  a  | main|  b  |             | main|  b  |     |
+        +-----+-----+-----+             +-----+-----+-----+ 
+        
+        Main direction try first, if failed then randomly choose side a or side b
+    */
+    int16_t gravity_row = -ax;   // gravity row component (positive = toward row+ = DOWN)
+    int16_t gravity_col = -ay;   // gravity col component (positive = toward col+ = RIGHT)
+    int16_t abs_g_row = (gravity_row < 0) ? -gravity_row : gravity_row;
+    int16_t abs_g_col = (gravity_col < 0) ? -gravity_col : gravity_col;
+    
+    // Diagonal detection: if |abs_g_row/abs_g_col| > tan(22.5°), then it's diagonal.
+    // tan(22.5°) ? 0.414 ? 106/256
+    bool is_diag = (abs_g_row * 256 >= abs_g_col * 106) && (abs_g_col * 256 >= abs_g_row * 106);
+    bool reverse;       // Reverse the scan direction, for orthogonal sectors? true is reverse
+    
+    if (is_diag) {        // Diagonal sectors
+        if (gravity_col >= 0 && gravity_row >= 0) {         // Quadrant I: DOWN-RIGHT
+            scan_order = SCAN_ORDER_GRAVITY_DOWN_RIGHT;
+            g_dirs[0] = NEIGHBOR_DOWN_RIGHT;
+            g_dirs[1] = NEIGHBOR_DOWN;
+            g_dirs[2] = NEIGHBOR_RIGHT;
+        } else if (gravity_col < 0 && gravity_row >= 0) {   // Quadrant II: DOWN-LEFT
+            scan_order = SCAN_ORDER_GRAVITY_DOWN_LEFT;
+            g_dirs[0] = NEIGHBOR_DOWN_LEFT;
+            g_dirs[1] = NEIGHBOR_DOWN;
+            g_dirs[2] = NEIGHBOR_LEFT;
+        } else if (gravity_col < 0 && gravity_row < 0) {    // Quadrant III: UP-LEFT
+            scan_order = SCAN_ORDER_GRAVITY_UP_LEFT;
+            g_dirs[0] = NEIGHBOR_UP_LEFT;
+            g_dirs[1] = NEIGHBOR_UP;
+            g_dirs[2] = NEIGHBOR_LEFT;
+        } else {                                            // Quadrant IV: UP-RIGHT
+            scan_order = SCAN_ORDER_GRAVITY_UP_RIGHT;
+            g_dirs[0] = NEIGHBOR_UP_RIGHT;
+            g_dirs[1] = NEIGHBOR_UP;
+            g_dirs[2] = NEIGHBOR_RIGHT;
+        }
+        reverse = false;
+    } else {        // Orthogonal sectors
+        if (_abs(ay) > _abs(ax)) { // Y is the dominant direction, choose left-right scan
+            scan_order = SCAN_ORDER_GRAVITY_RIGHT;
+            g_dirs[0] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
+            g_dirs[1] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
+            reverse = (ay < 0); // reverse the scan order, scan left to right while still using SCAN_ORDER_GRAVITY_RIGHT
+        } else { // X dominant
+            scan_order = SCAN_ORDER_GRAVITY_DOWN;
+            g_dirs[0] = (ax > 0) ? NEIGHBOR_UP : NEIGHBOR_DOWN;
+            g_dirs[1] = (ay > 0) ? NEIGHBOR_LEFT : NEIGHBOR_RIGHT;
+            reverse = (ax > 0);
+        }
     }
 
 
@@ -72,52 +97,86 @@ SimBase::Status SandSim::calc() {
         uint8_t velocity = _sand_prev[current_led_loc];
         if (velocity == 0) continue;
 
-        // Check neighbor in main gravity component
-        int8_t main_neighbor = LED_NEIGHBORS[current_led_loc][g_dirs[0]];
-        if (main_neighbor < 0) {            // detect if its main neighbor is -1 (wall)
-            _sand_now[current_led_loc] = 1;         // if it's a wall, we don't let it fall
-            continue;
-        }
+        if (is_diag) { // Diagonal falling logic
+            int8_t main_neighbor = LED_NEIGHBORS[current_led_loc][g_dirs[0]];
 
-        // try to fall multiple steps (accelerate with velocity)
-        int8_t fall_pos = current_led_loc;
-        uint8_t fall_steps = 0;
-        for (uint8_t s = 0; s < velocity && s < 5; s++) {
-            int8_t next = LED_NEIGHBORS[fall_pos][g_dirs[0]];
-            if (next < 0) break;
-            if (_sand_now[next] > 0) break;
-            fall_pos = next;
-            fall_steps++;
-        }
+            if (_sand_now[main_neighbor] == 0) { // main neighbor is empty, move
+                _sand_now[main_neighbor] = 1;
+            } else { // Wall(-1) in diagonal direction, try orthogonal side slides instead
+                // Blocked -> slide to orthogonal sides
+                int8_t slide_a = LED_NEIGHBORS[current_led_loc][g_dirs[1]];
+                int8_t slide_b = LED_NEIGHBORS[current_led_loc][g_dirs[2]];
 
-        if (fall_steps > 0) {
-            _sand_now[fall_pos] = (velocity >= 5) ? 5 : velocity + 1;
-            continue;
-        }
+                // Randomize which side to try first
+                _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
+                if (_random & 1) { int8_t t = slide_a; slide_a = slide_b; slide_b = t; }
 
-        // if main gravity neighbor is empty -> fall
-        if (_sand_now[main_neighbor] == 0) {
-            _sand_now[main_neighbor] = 1;
-        } else {
-            // if blocked, try sliding along two perpendicular directions
-            int8_t slide_a = LED_NEIGHBORS[main_neighbor][g_dirs[1]];      // side A
-            int8_t slide_b = LED_NEIGHBORS[main_neighbor][g_dirs[1] ^ 1];  // side B (opposite)
-
-            // Randomize which side to try first
-            _random = (_random * 131 + 53) & 0xFF;
-            if (_random & 1) { int8_t t = slide_a; slide_a = slide_b; slide_b = t; }
-
-            bool moved = false;
-            if (slide_a >= 0 && _sand_now[slide_a] == 0) {  // if side a is not wall && has no grain
-                _sand_now[slide_a] = 1;                     // slide
-                moved = true;
+                bool moved = false;
+                if (slide_a >= 0 && _sand_now[slide_a] == 0) {
+                    _sand_now[slide_a] = 1;  moved = true;
+                }
+                if (!moved && slide_b >= 0 && _sand_now[slide_b] == 0) {
+                    _sand_now[slide_b] = 1;  moved = true;
+                }
+                if (!moved) {
+                    _sand_now[current_led_loc] = 1;
+                }
             }
-            if (!moved && slide_b >= 0 && _sand_now[slide_b] == 0) { // if side a is blocked, try side b
-                _sand_now[slide_b] = 1;
-                moved = true;
-            }
-            if (!moved) {  // Completely stuck
+
+        } else { // Orthogonal fall
+            // Check neighbor in main gravity component
+            int8_t main_neighbor = LED_NEIGHBORS[current_led_loc][g_dirs[0]];
+            if (main_neighbor < 0) {
                 _sand_now[current_led_loc] = 1;
+                continue;
+            }
+
+            // try to fall multiple steps (accelerate with velocity)
+            int8_t fall_pos = current_led_loc;
+            uint8_t fall_steps = 0;
+            for (uint8_t s = 0; s < velocity && s < 5; s++) {
+                int8_t next = LED_NEIGHBORS[fall_pos][g_dirs[0]];
+                if (next < 0) break;
+                if (_sand_now[next] > 0) break;
+                fall_pos = next;
+                fall_steps++;
+            }
+
+            if (fall_steps > 0) {
+                _sand_now[fall_pos] = (velocity >= 5) ? 5 : velocity + 1;
+                continue;
+            }
+
+            // if main gravity neighbor is empty -> fall
+            if (_sand_now[main_neighbor] == 0) {
+                _sand_now[main_neighbor] = 1;
+            } else {
+                // if blocked, try sliding along two perpendicular directions
+                int8_t slide_a, slide_b;
+                if (g_dirs[0] == NEIGHBOR_UP || g_dirs[0] == NEIGHBOR_DOWN) {
+                    slide_a = LED_NEIGHBORS[main_neighbor][NEIGHBOR_LEFT];
+                    slide_b = LED_NEIGHBORS[main_neighbor][NEIGHBOR_RIGHT];
+                } else {
+                    slide_a = LED_NEIGHBORS[main_neighbor][NEIGHBOR_UP];
+                    slide_b = LED_NEIGHBORS[main_neighbor][NEIGHBOR_DOWN];
+                }
+
+                // Randomize which side to try first
+                _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
+                if (_random & 1) { int8_t t = slide_a; slide_a = slide_b; slide_b = t; }
+
+                bool moved = false;
+                if (slide_a >= 0 && _sand_now[slide_a] == 0) {
+                    _sand_now[slide_a] = 1;
+                    moved = true;
+                }
+                if (!moved && slide_b >= 0 && _sand_now[slide_b] == 0) {
+                    _sand_now[slide_b] = 1;
+                    moved = true;
+                }
+                if (!moved) {
+                    _sand_now[current_led_loc] = 1;
+                }
             }
         }
     }
@@ -125,7 +184,7 @@ SimBase::Status SandSim::calc() {
     return status;
 }
 
-/*
+/* // fixed gravity falling
 SimBase::Status SandSim::calc() {
     _backup_sand_array();
 
@@ -149,7 +208,7 @@ SimBase::Status SandSim::calc() {
             int8_t downleft = LED_NEIGHBORS[downward_loc][NEIGHBOR_LEFT];
             int8_t downright = LED_NEIGHBORS[downward_loc][NEIGHBOR_RIGHT];
 
-            _random = (_random * 131 + 53) & 0xFF;
+            _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
             if (_random & 1) { int8_t t = downleft; downleft = downright; downright = t; }
 
             if (downleft < 0) { // if downleft neighbor is -1 (wall)

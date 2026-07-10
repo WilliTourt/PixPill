@@ -10,7 +10,7 @@
 class SandSim : public SimBase {
     public:
 
-        SandSim(BMA530 &accel, IS31FL3736 &is31);
+        SandSim(BMA530 &accel, IS31FL3736 &is31, uint8_t sand_num);
 
         Status init();
         Status calc();
@@ -25,6 +25,7 @@ class SandSim : public SimBase {
 
         BMA530 _accel;
         IS31FL3736 _is31;
+        uint8_t _sand_num; // number of sand particles
 
         uint16_t _random;
 };

@@ -5,9 +5,6 @@
 #include "bma530.h"
 #include "sim_base.h"
 
-// Numbers of Particles
-#define LIQUID_PARTICLE_COUNT               16
-
 // Numerical Integration
 #define SUBSTEPS                            2      // more substeps = more stable but slower
 
@@ -118,7 +115,8 @@ class LiquidSim : public SimBase {
             float x, y;
         } Vector_t;
 
-        LiquidSim(BMA530 &accel, IS31FL3736 &is31);
+        LiquidSim(BMA530 &accel, IS31FL3736 &is31, uint8_t particle_num = 16);
+        ~LiquidSim();
 
         Status init();
         Status calc();
@@ -134,8 +132,9 @@ class LiquidSim : public SimBase {
 
         BMA530 &_accel;
         IS31FL3736 &_is31;
+        uint8_t _particle_num;
 
-        LiquidParticle_t _particles[LIQUID_PARTICLE_COUNT];
+        LiquidParticle_t *_particles;
         Vector_t _gravity;
         int8_t _led_lut[18][6];  // density grid coord → LED index, -1=invalid
 

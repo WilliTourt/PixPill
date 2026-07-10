@@ -35,8 +35,8 @@ BMA530 accel(&hi2c1);
 IS31FL3736 is31(&hi2c1);
 
 SimBase *sim = nullptr;
-SandSim sand(accel, is31);
-LiquidSim liquid(accel, is31);
+SandSim sand(accel, is31, 32);
+LiquidSim liquid(accel, is31, 16);
 PixPillAnim anim(is31);
 
 // ===================== Gesture Detection =====================

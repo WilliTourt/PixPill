@@ -1,23 +1,35 @@
 #include "liquidsim.h"
 #include <cstring>
+#include <cstdlib>
 
 #include "inv_sqrt_table.h"
 
-LiquidSim::LiquidSim(BMA530 &accel, IS31FL3736 &is31)
-    : _accel(accel), _is31(is31), _random(131) {
+LiquidSim::LiquidSim(BMA530 &accel, IS31FL3736 &is31, uint8_t particle_num)
+    : _accel(accel), _is31(is31), _particle_num(particle_num), _particles(nullptr), _random(131) {
     memset(_led_buf, 0, sizeof(_led_buf));
     _gravity.x = 0;
     _gravity.y = 0;
 }
 
+LiquidSim::~LiquidSim() {
+    if (_particles != nullptr) {
+        free(_particles);
+        _particles = nullptr;
+    }
+}
+
 SimBase::Status LiquidSim::init() {
+    // Allocate particle array dynamically
+    _particles = (LiquidParticle_t *)malloc(_particle_num * sizeof(LiquidParticle_t));
+    if (_particles == nullptr) return Status::ERR;
+
     // Build LED lookup table: grid (row,col) -> LED index
     memset(_led_lut, -1, sizeof(_led_lut));
     for (uint8_t led = 0; led < LIQUID_LED_COUNT; led++) {
         _led_lut[LIQUID_LED_ROW[led]][LIQUID_LED_COL[led]] = led;
     }
 
-    for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+    for (uint8_t i = 0; i < _particle_num; i++) {
         _particles[i].vx = 0;
         _particles[i].vy = 0;
 
@@ -26,7 +38,7 @@ SimBase::Status LiquidSim::init() {
             uint8_t row = _random % 18;
             uint8_t col = _random % 6;
 
-            _random = (_random * 131 + 53) & 0xBEEF;
+            _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
 
             if (!LIQUID_LED_MASK[row][col]) continue;
 
@@ -126,7 +138,7 @@ void LiquidSim::_clamp_particle_to_shape(LiquidParticle_t &p) {
  * Euler integration: apply gravity + damping, update position
  */
 void LiquidSim::_update_particles(float dt) {
-    for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+    for (uint8_t i = 0; i < _particle_num; i++) {
         _particles[i].vx += _gravity.x * dt;
         _particles[i].vy += _gravity.y * dt;
 
@@ -150,8 +162,8 @@ void LiquidSim::_process_collisions() {
 
     // 1: Linear push and elastic velocity exchange
     for (uint8_t iter = 0; iter < LIQUID_COLLISIONS_ITERS; iter++) {
-        for (uint8_t p1 = 0; p1 < LIQUID_PARTICLE_COUNT; p1++) {
-            for (uint8_t p2 = p1 + 1; p2 < LIQUID_PARTICLE_COUNT; p2++) {
+        for (uint8_t p1 = 0; p1 < _particle_num; p1++) {
+            for (uint8_t p2 = p1 + 1; p2 < _particle_num; p2++) {
 
                 float dx = _particles[p2].x - _particles[p1].x;
                 float dy = _particles[p2].y - _particles[p1].y;
@@ -205,8 +217,8 @@ void LiquidSim::_process_collisions() {
 
     // 2: Surface tension (disabled, kept for future tuning)
     if (LIQUID_ATTRACT_STRENGTH > 0.0f) {
-        for (uint8_t p1 = 0; p1 < LIQUID_PARTICLE_COUNT; p1++) {
-            for (uint8_t p2 = p1 + 1; p2 < LIQUID_PARTICLE_COUNT; p2++) {
+        for (uint8_t p1 = 0; p1 < _particle_num; p1++) {
+            for (uint8_t p2 = p1 + 1; p2 < _particle_num; p2++) {
                 float dx = _particles[p2].x - _particles[p1].x;
                 float dy = _particles[p2].y - _particles[p1].y;
                 float dist_sq = dx * dx + dy * dy;
@@ -232,7 +244,7 @@ void LiquidSim::_process_collisions() {
         float density[18][6];
         _compute_density(density);
 
-        for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+        for (uint8_t i = 0; i < _particle_num; i++) {
             int8_t row = (int8_t)(_particles[i].y + 0.5f);
             int8_t col = (int8_t)(_particles[i].x + 0.5f);
 
@@ -272,7 +284,7 @@ void LiquidSim::_process_collisions() {
         }
     }
 
-    for (uint8_t i = 0; i < LIQUID_PARTICLE_COUNT; i++) {
+    for (uint8_t i = 0; i < _particle_num; i++) {
         _clamp_particle_to_shape(_particles[i]);
         // Safety: reset out-of-bounds particles to center
         if (_particles[i].y < 0.0f || _particles[i].y > 18.0f ||
@@ -293,7 +305,7 @@ void LiquidSim::_process_collisions() {
 void LiquidSim::_compute_density(float density[18][6]) {
     memset(density, 0, sizeof(float) * 18 * 6);
 
-    for (uint8_t p = 0; p < LIQUID_PARTICLE_COUNT; p++) {
+    for (uint8_t p = 0; p < _particle_num; p++) {
         float fx = _particles[p].x;
         float fy = _particles[p].y;
 
