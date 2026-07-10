@@ -147,9 +147,9 @@ void cpp_main() {
     liquid.init();
     sim = &liquid;
 
-    // Boot animation (blocking, ~2940ms)
+    // Boot animation (blocking, ~2730ms)
     anim.start(PixPillAnim::Anim::BOOT);
-    while (anim.tick(70));
+    while (anim.tick(65));
 
     last_active_ms = HAL_GetTick();
 
