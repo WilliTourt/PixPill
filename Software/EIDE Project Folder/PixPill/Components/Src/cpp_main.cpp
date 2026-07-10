@@ -198,7 +198,7 @@ static void enterSleep() {
 
 
 void cpp_main() {
-    accel.begin(BMA530::ODR::_100HZ, BMA530::Range::_2G, BMA530::Power::LPM);
+    accel.begin(BMA530::ODR::_50HZ, BMA530::Range::_2G, BMA530::Power::LPM);
 
     is31.begin();
     is31.setPWMAll(0xFF);
