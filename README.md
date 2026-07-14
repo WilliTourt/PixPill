@@ -112,7 +112,6 @@ MIT — see [LICENSE](LICENSE)
 
 ## Credits
 
-- **Hardware & Firmware:** [WilliTourt](https://github.com/WilliTourt)
 - **PCB:** Designed in EasyEDA Professional, fabricated as 4-layer HDI
 - **Simulation algorithm references:**
   - Website: [Falling Sand Simulation — Kyle W. Pfeiffer](https://www.kylepfeiffer.com/projects/4_project/)
