@@ -6,6 +6,8 @@
 
 PixPill is a tiny gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
 
+Its tiny PCB dimensions (23.9×8.6 mm / 19.5×6.9 mm) are deliberately aligned with standardized size 000 (26.1×8.5 mm) and size 1 (19.4×6.9 mm) pill capsules.
+
 For detailed hardware design and 3D-related information, see [Hardware Design.md](Hardware/Hardware%20Design.md). For software details, see [Software Design.md](Software/Software%20Design.md).
 
 ---
@@ -32,7 +34,7 @@ For detailed hardware design and 3D-related information, see [Hardware Design.md
 | **LEDs** | 90× 0201 or 96× 0402 | Arranged in a pill-shaped layout |
 | **PMIC** | nPM1100 | Li-Po charger, max 400 mA LDO, with ship mode |
 | **Battery** | 08120 3.7V Li-Po | Charged via microUSB |
-| **PCB** | 4-layer 1st-order HDI | 8.6×23.9 mm / 6.9×19.5 mm |
+| **PCB** | 4-layer 1st-order HDI | 23.9×8.6 mm / 19.5×6.9 mm |
 
 ---
 
