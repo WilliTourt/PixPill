@@ -4,6 +4,22 @@
 
 ---
 
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [State Machine](#state-machine)
+- [Sand Simulation (class SandSim)](#sand-simulation-class-sandsim)
+- [Liquid Simulation (class LiquidSim)](#liquid-simulation-class-liquidsim)
+- [Animation System (class PixPillAnim)](#animation-system-class-pixpillanim)
+- [Gesture Recognition](#gesture-recognition)
+- [Power Management](#power-management)
+- [LED Open/Short Detection](#led-open-short-detection)
+- [Firmware Version Adaptation (Conditional Compilation)](#firmware-version-adaptation-conditional-compilation)
+- [Development Environment](#development-environment)
+- [Desktop Simulators](#desktop-simulators)
+
+---
+
 ## Architecture Overview
 
 PixPill firmware uses a **bare-metal superloop** without an RTOS. The main loop is driven by HAL delays, running particle simulation and gesture detection at a fixed frame rate.
@@ -25,9 +41,9 @@ Components/
 ### System Resources
 
 | Resource | Usage | Notes |
-|----------|-------|-------|
-| **RAM** | 2872 B / 6 KB (46.7%) | Stack, particle buffers, lookup tables |
-| **FLASH** | 32100 B / 32 KB (97.9%) | Extremely compact under -Os optimization |
+| ------- | ------- | ------- |
+| **RAM** | 2872 B / 6 KB (46.74%) | Includes stack, particle buffers, lookup tables |
+| **FLASH** | 32656 B / 32 KB (99.66%) | Extremely compact under -Os optimization; flash usage is nearly full |
 | **I2C** | I2C1 (PB6-SCL, PC14-SDA) | Shared by BMA530 (addr 0x18 << 1) + IS31FL3736 (addr 0x50 << 1) |
 | **TIM3_CH2** | PA7 — LED_STATUS breathing | 1kHz PWM, sin² 64-step LUT |
 | **GPIO** | PA8 (ERR), PB7 (CHG), PC15 (SHPACT) | nPM1100 monitoring & control |
@@ -175,6 +191,64 @@ Target = 8 direction flips (i.e., 4 up-down shake cycles)
 
 ---
 
+## LED Open/Short Detection
+
+The IS31FL3736 integrates independent open-circuit and short-circuit detection for each LED, and the firmware runs a full LED detection pass once at startup.
+
+### Detection Flow
+
+| Register | Address | Description |
+|----------|---------|-------------|
+| Open Register | PG0 18h-2Fh | 24 bytes; every even bit (0, 2, 4, 6, ...) corresponds to one LED open-circuit status |
+| Short Register | PG0 30h-47h | 24 bytes; every even bit corresponds to one short-circuit status |
+
+Register bit layout is identical to the LED On/Off Register (00h-17h): each SW occupies 2 bytes, and D0/D2/D4/D6 correspond to CS1-CS4 (low address) and CS5-CS8 (high address).
+
+1. Set GCC = 0x01
+2. Turn on all LEDs (LEDs that remain off will not refresh the detection data)
+3. Set the Configuration Register OSD bit 0 → 1 (write 0x04) to trigger a one-shot detection
+4. Wait for at least 2 scan cycles (5 ms)
+5. Read the Open/Short registers and decode them into 96 boolean values; true means an error
+6. Restore the LEDs to the off state and restore the original GCC
+
+### Result Handling
+
+- If detection succeeds (`valid == true`), scan all 96 LEDs and count open/short faults; skip indices 0–5 on the 1# capsule because they do not physically exist
+- If any fault exists, play the ERR animation for 3 seconds and then continue normal operation
+- If all are normal, proceed silently into the main loop
+
+---
+
+## Firmware Version Adaptation (Conditional Compilation)
+
+PixPill has two capsule versions (for the 000# and 1# capsule), switched by conditional compilation with `PIXPILL_SIZE_1_CAPSULE`.
+
+### Version Differences
+
+| Parameter | 000# | 1# |
+|----------|------|----|
+| Diameter | 6.6 mm | 8 mm |
+| LED count | 96 | 90 |
+| Physical button | Rear side, on the same side as other components | Top side occupies row 0-1 (6 LEDs) |
+
+### Switch Method
+
+- Edit [Components/Inc/PIXPILL_VERSION_SELECT.h](Components/Inc/PIXPILL_VERSION_SELECT.h) and uncomment `#define PIXPILL_SIZE_1_CAPSULE`
+- Or directly uncomment `-DPIXPILL_SIZE_1_CAPSULE` at Makefile line 116
+
+### Adaptation Details
+
+Principle: keep the 96-index layout unchanged and treat the missing LEDs as "walls".
+
+- `LIQUID_LED_MASK`: on the 1# version, all LEDs in row 0-1 are set to false; liquid particle initialization and density field calculation automatically skip them
+- `LED_NEIGHBORS[96][8]`: on the 1# version, neighbors for indices 0-5 in all 8 directions are set to -1 (wall), so sand cannot move into those positions
+- `SandSim::init()`: on the 1# version, the random initialization range changes from 0-95 to 6-95
+- Animation and liquid simulation do not need changes; `LIQUID_LED_MASK` filters them automatically
+
+The rest of the simulation code (scan tables, particle arrays, animation frames, etc.) remains unchanged.
+
+---
+
 ## Development Environment
 
 ### Recommended Setup
@@ -188,11 +262,11 @@ This project is developed using **VSCode + EIDE plugin**, which is the recommend
 - **arm-none-eabi-gcc**: Cross-compilation toolchain
 - **ST-LINK / J-Link / DAPLink**: Debug probes
 
-### Build
+### Build and Flash
 
 **Method 1: EIDE (Recommended)**
 
-In VSCode with the EIDE plugin, simply click the Build button.
+In VSCode with the EIDE plugin, click the Build button to compile.
 
 **Method 2: GNU Make**
 
@@ -201,20 +275,7 @@ cd PixPill
 make -j$(nproc)
 ```
 
-### Flash
-
-**EIDE**: Connect your debug probe and click the Flash button for one-click programming.
-
-**Command line (SWD)**:
-
-```bash
-# ST-LINK
-openocd -f interface/stlink.cfg -f target/stm32c0x.cfg \
-  -c "program build/Debug/PixPill.elf verify reset exit"
-
-# STM32CubeProgrammer CLI
-STM32_Programmer_CLI -c port=SWD -w PixPill.elf -v -rst
-```
+After connecting the debug probe, click the Flash button or use CubeProgrammer to flash.
 
 ---
 

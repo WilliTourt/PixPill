@@ -20,7 +20,8 @@
  * 
  *   Memory region         Used Size  Region Size  %age Used
  *                RAM:        2872 B         6 KB     46.74%
- *              FLASH:       32640 B        32 KB     99.61%
+ *              FLASH:       32656 B        32 KB     99.66%    1# Capsule
+ *              FLASH:       32648 B        32 KB     99.63%    000# Capsule
  *
  * @author:     WilliTourt <willitourt@foxmail.com>
  * @date        2026-07-10
