@@ -287,7 +287,7 @@ IS31FL3736::FaultResult IS31FL3736::detectFaults() {
     uint8_t saved_gcc = _gcc;
 
     // Step 1 & 2
-    if (ledOnAll(0x01)) { return result; }
+    if (!ledOnAll(0x01)) { return result; }
 
     // Step 3: Trigger OSD (clear first, then set from 0 to 1)
     bool ok = _select_page(IS31_PAGE_FUNC)
@@ -295,7 +295,7 @@ IS31FL3736::FaultResult IS31FL3736::detectFaults() {
            && _write_reg(IS31_REG_CONF, IS31_CONF_SSD | IS31_CONF_OSD);
 
     // Step 4
-    HAL_Delay(5);
+    HAL_Delay(10);
 
     // Step 5: Read open/short regs from PG0
     if (ok) {

@@ -36,7 +36,8 @@ targets:
       libList: []
     excludeList:
       - Components/Src/ElegantDebug.cpp
-    settings: {}
+    settings:
+      debugger: cortex-debug
     toolchain: GCC
     toolchainConfigMap:
       GCC:

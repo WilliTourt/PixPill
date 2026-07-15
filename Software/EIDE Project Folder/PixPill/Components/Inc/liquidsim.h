@@ -28,7 +28,7 @@
 
 // Density Field
 #define DENSITY_MAX_BRIGHTNESS              255.0f // Maximum PWM value (LED Brightness)
-#define DENSITY_PER_PARTICLE                270.0f // Contribution of each particle to the density field
+#define DENSITY_PER_PARTICLE                280.0f // Contribution of each particle to the density field
 
 // Density Force
 #define LIQUID_DENSITY_PRESSURE_THRESHOLD   95.0f  // Density threshold for triggering pressure force

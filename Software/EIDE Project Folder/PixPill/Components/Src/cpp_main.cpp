@@ -202,8 +202,6 @@ void cpp_main() {
     is31.ledOffAll();
     // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
 
-    is31.setGCC(18);
-
     // LED open/short detect — run once at boot before simulation starts
     IS31FL3736::FaultResult faults = is31.detectFaults();
     if (faults.valid) {
@@ -222,15 +220,18 @@ void cpp_main() {
 
         // If fault detected, flash ERR animation briefly then continue
         if (open_count > 0 || short_count > 0) {
+            is31.setGCC(22);
             anim.start(PixPillAnim::Anim::ERR);
             uint32_t err_start = HAL_GetTick();
-            while (HAL_GetTick() - err_start < 2000) {
+            while (HAL_GetTick() - err_start < 3000) {
                 anim.tick();
                 HAL_Delay(16);
             }
             anim.stop();
         }
     }
+
+    is31.setGCC(22);
 
     sand.init();
     liquid.init();
