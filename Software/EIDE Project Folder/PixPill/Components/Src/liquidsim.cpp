@@ -367,7 +367,7 @@ SimBase::Status LiquidSim::calc() {
 
 SimBase::Status LiquidSim::draw() {
     bool ok = true;
-    for (uint8_t i = 0; i < 96; i++) {
+    for (uint8_t i = 0; i < LIQUID_LED_COUNT; i++) {
         uint8_t sw = (i % 12) + 1;
         uint8_t cs = (i / 12) + 1;
 

@@ -37,6 +37,62 @@
 // Grid
 #define LIQUID_GRID_ROWS 18
 #define LIQUID_GRID_COLS 6
+
+
+
+// LED grid mask — valid cells for density field and particle placement
+#ifdef PIXPILL_SIZE_1_CAPSULE
+
+// Row 0-1 empty (button area), rows 2-17 same pill shape as 000#
+static const bool LIQUID_LED_MASK[18][6] = {
+    { 0,0,0,0,0,0 },
+    { 0,0,0,0,0,0 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 0,1,1,1,1,0 },
+    { 0,0,1,1,0,0 }
+};
+
+#else
+
+static const bool LIQUID_LED_MASK[18][6] = {
+    { 0,0,1,1,0,0 },
+    { 0,1,1,1,1,0 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 1,1,1,1,1,1 },
+    { 0,1,1,1,1,0 },
+    { 0,0,1,1,0,0 }
+};
+#endif
+
+
+
+// 000# Capsule (6.6mm, 96 LEDs): full pill, 2-6-...-6-4-2 shape
+// 1# Capsule (8mm, 90 LEDs): top rows 0-1 removed for physical button
 #define LIQUID_LED_COUNT 96
 
 static const int8_t LIQUID_LED_ROW[LIQUID_LED_COUNT] = {
@@ -81,27 +137,6 @@ static const int8_t LIQUID_LED_COL[LIQUID_LED_COUNT] = {
         2,3
 };
 
-// LED grid mask — valid cells for density field and particle placement
-static const bool LIQUID_LED_MASK[18][6] = {
-    { 0,0,1,1,0,0 },
-    { 0,1,1,1,1,0 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 1,1,1,1,1,1 },
-    { 0,1,1,1,1,0 },
-    { 0,0,1,1,0,0 }
-};
 
 
 class LiquidSim : public SimBase {

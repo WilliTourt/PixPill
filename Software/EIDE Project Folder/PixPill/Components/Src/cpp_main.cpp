@@ -72,7 +72,7 @@ LiquidSim liquid(accel, is31, 16);
 PixPillAnim anim(is31);
 
 // ===================== Gesture Detection =====================
-// Detect a quick left-right-left-right shake (4 direction changes in 500ms)
+// Detect a quick up-down-up-down shake (4 direction changes in SHAKE_WINDOW_MS)
 
 static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
 static const uint32_t SHAKE_WINDOW_MS = 570;    // time window for gesture

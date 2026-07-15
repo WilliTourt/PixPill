@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "PIXPILL_VERSION_SELECT.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

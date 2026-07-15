@@ -112,6 +112,9 @@ C_DEFS =  \
 -DUSE_HAL_DRIVER \
 -DSTM32C011xx
 
+# Uncomment PIXPILL_SIZE_1_CAPSULE for 1# capsule, or uncomment in Components\Inc\PIXPILL_VERSION_SELECT.h
+# -DPIXPILL_SIZE_1_CAPSULE
+
 
 # AS includes
 AS_INCLUDES = 

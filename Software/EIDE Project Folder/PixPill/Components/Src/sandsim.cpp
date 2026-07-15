@@ -12,7 +12,11 @@ SimBase::Status SandSim::init() {
         uint8_t idx;
         do {
             _random = (_random * 2944925833 + 12345) & 0xDEADBEEF;
+#ifdef PIXPILL_SIZE_1_CAPSULE
+            idx = 6 + (_random % 90);  // LEDs 0-5 don‘t exist
+#else
             idx = _random % 96;
+#endif
         } while (_sand_now[idx] != 0);
         _sand_now[idx] = 1;
     }
@@ -37,7 +41,7 @@ SimBase::Status SandSim::calc() {
         Orthogonal:                     Diagonal:
         +-----+-----+-----+             +-----+-----+-----+
         |     |  O  |     |             |  a  |  O  |     |
-        +-----+--?--+-----+             +-----?-----+-----+ 
+        +-----+--↓--+-----+             +-----↙-----+-----+ 
         |  a  | main|  b  |             | main|  b  |     |
         +-----+-----+-----+             +-----+-----+-----+ 
         
@@ -48,8 +52,8 @@ SimBase::Status SandSim::calc() {
     int16_t abs_g_row = (gravity_row < 0) ? -gravity_row : gravity_row;
     int16_t abs_g_col = (gravity_col < 0) ? -gravity_col : gravity_col;
     
-    // Diagonal detection: if |abs_g_row/abs_g_col| > tan(22.5�), then it's diagonal.
-    // tan(22.5�) ? 0.414 ? 106/256
+    // Diagonal detection: if |abs_g_row/abs_g_col| > tan(22.5deg), then it's diagonal.
+    // tan(22.5deg) ≈ 0.414 ≈ 106/256
     bool is_diag = (abs_g_row * 256 >= abs_g_col * 106) && (abs_g_col * 256 >= abs_g_row * 106);
     bool reverse;       // Reverse the scan direction, for orthogonal sectors? true is reverse
     
