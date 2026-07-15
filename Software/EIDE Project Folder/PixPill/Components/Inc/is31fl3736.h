@@ -20,7 +20,7 @@
 #define IS31FL3736_I2C_ADDR        (0x50 << 1)  // default: ADDR1=GND, ADDR2=GND → 101 0000
 
 /* ============================================================
- * Global registers (outside pages)
+ * Global registers
  * ============================================================ */
 #define IS31_REG_CMD                0xFD  // Page select (write)
 #define IS31_REG_CMD_WR_LOCK        0xFE  // Unlock FDh (write 0xC5)
@@ -99,6 +99,13 @@ class IS31FL3736 {
             T_107_52s = 10   // T4 only
         };
 
+        /* ---- LED open/short detect (PG0 18h-47h) ---- */
+        struct FaultResult {
+            bool valid;          // false = detection failed
+            bool open_leds[96];  // 1 = open
+            bool short_leds[96]; // 1 = short
+        };
+
         /* !!!! SAFETY CURRENT LIMITATIONS !!!! */
         static constexpr float MAX_TOTAL_CURRENT_MA = 280.0f;
         static constexpr float MAX_LED_CURRENT_MA  = 3.6f;
@@ -135,6 +142,8 @@ class IS31FL3736 {
                              BreathTime t3_fall,
                              BreathTime t4_off);
 
+        FaultResult detectFaults();  // Single time open/short detect on all 96 LEDs
+
         inline float getIout() {            // Total output current (mA)
             return (840.0f / _rext_ohm * _gcc / 256.0f);
             // See datasheet page 19: Global Current Control
@@ -161,4 +170,6 @@ class IS31FL3736 {
 
         bool _write_reg(uint8_t reg, uint8_t data);      // Write within _page
         bool _read_reg(uint8_t reg, uint8_t *data);      // Read within _page
+
+        void _parse_fault(const uint8_t reg[24], bool leds[96]);
 };

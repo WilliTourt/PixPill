@@ -11,12 +11,13 @@ static inline uint8_t _pwm_addr(uint8_t cs, uint8_t sw) {
 
 /* ---- LED On/Off address (PG0): 2 bytes per SW ---- */
 static inline uint8_t _onoff_addr(uint8_t cs, uint8_t sw) {
-    return ((sw - 1) * 2) + (cs <= 4 ? 0 : 1);
+    return ((sw - 1) * 2) + (cs <= 4 ? 0 : 1); // See datasheet P15 Table 6
 }
 
 /* ---- Bit position within On/Off register (D0/D2/D4/D6 for both CS groups) ---- */
 static inline uint8_t _onoff_bit(uint8_t cs) {
-    return ((cs - 1) & 0x03) * 2;  // CS1→0, CS2→2, CS3→4, CS4→6; same for CS5-CS8
+    return ((cs - 1) & 3) * 2;  // CS1→0, CS2→2, CS3→4, CS4→6; same for CS5-CS8
+    // 6 4 2 0
 }
 
 IS31FL3736::IS31FL3736(I2C_HandleTypeDef *hi2c, float r_ext, uint8_t i2c_addr)
@@ -261,4 +262,74 @@ bool IS31FL3736::setBreathTiming(uint8_t abm,
 
     // Commit timing registers
     return _write_reg(IS31_REG_TIME_UPDATE, 0x00);
+}
+
+/* ============================================================
+ * LED open/short detect (PG0 18h-47h)
+ *
+ * Procedure (datasheet P24):
+ *   1. Set GCC=0x01 for accurate detection
+ *   2. Turn ON all LEDs under test (off LEDs won't refresh detect data)
+ *   3. Clear OSD bit → set OSD bit ("0" to “1” triggers one-shot detect)
+ *   4. Wait 2 scan cycles (3.264ms)
+ *   5. Read Open Register (18h-2Fh) and Short Register (30h-47h) from PG0
+ *   6. Clear OSD, restore GCC
+ * ============================================================ */
+IS31FL3736::FaultResult IS31FL3736::detectFaults() {
+    FaultResult result;
+    memset(&result, 0, sizeof(result));
+
+    uint8_t open_bits[24];
+    uint8_t short_bits[24];
+    memset(open_bits, 0, 24);
+    memset(short_bits, 0, 24);
+
+    uint8_t saved_gcc = _gcc;
+
+    // Step 1 & 2
+    if (ledOnAll(0x01)) { return result; }
+
+    // Step 3: Trigger OSD (clear first, then set from 0 to 1)
+    bool ok = _select_page(IS31_PAGE_FUNC)
+           && _write_reg(IS31_REG_CONF, IS31_CONF_SSD)
+           && _write_reg(IS31_REG_CONF, IS31_CONF_SSD | IS31_CONF_OSD);
+
+    // Step 4
+    HAL_Delay(5);
+
+    // Step 5: Read open/short regs from PG0
+    if (ok) {
+        ok = _select_page(IS31_PAGE_LED);
+        for (uint8_t i = 0; (ok && i < 24); i++) {
+            ok = _read_reg(0x18 + i, &open_bits[i])
+              && _read_reg(0x30 + i, &short_bits[i]);
+        }
+    }
+
+    // Step 6: Clear OSD
+    if (_select_page(IS31_PAGE_FUNC)) {
+        _write_reg(IS31_REG_CONF, IS31_CONF_SSD);
+    }
+
+    ledOffAll();
+    setGCC(saved_gcc);
+
+    result.valid = ok;
+    _parse_fault(open_bits, result.open_leds);
+    _parse_fault(short_bits, result.short_leds);
+
+    return result;
+}
+
+// Parse 24-byte PG0 register bit-pack into 96-LED bool array
+void IS31FL3736::_parse_fault(const uint8_t reg[24], bool leds[96]) {
+    memset(leds, 0, 96);
+    for (uint8_t sw = 1; sw <= 12; sw++) {
+        for (uint8_t cs = 1; cs <= 8; cs++) {
+            uint8_t addr = _onoff_addr(cs, sw);
+            uint8_t bit  = _onoff_bit(cs);
+            uint8_t led_idx = (sw - 1) * 8 + (cs - 1);  // 0=SW1_CS1, 7=SW1_CS, ..., 95=SW12_CS8
+            leds[led_idx] = (reg[addr] >> bit) & 1;
+        }
+    }
 }

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file    cpp_main.cpp
- * @version 1.0
+ * @version 1.1
  * 
  * @brief   PixPill firmware — application entry point and main loop.
  *
@@ -20,13 +20,14 @@
  * 
  *   Memory region         Used Size  Region Size  %age Used
  *                RAM:        2872 B         6 KB     46.74%
- *              FLASH:       32100 B        32 KB     97.96%
+ *              FLASH:       32640 B        32 KB     99.61%
  *
  * @author:     WilliTourt <willitourt@foxmail.com>
  * @date        2026-07-10
  * 
  * @changelog:
  * - 2026-07-10: Initial version
+ * - 2026-07-15: 1# LED matrix adapted, added LED fault detection
  * 
  ******************************************************************************/
 
@@ -202,6 +203,34 @@ void cpp_main() {
     // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
 
     is31.setGCC(18);
+
+    // LED open/short detect — run once at boot before simulation starts
+    IS31FL3736::FaultResult faults = is31.detectFaults();
+    if (faults.valid) {
+
+        // Check if any LED has open or short fault
+        uint8_t open_count = 0, short_count = 0;
+        for (uint8_t i = 0; i < 96; i++) {
+
+            #ifdef PIXPILL_SIZE_1_CAPSULE
+            if (i < 6) continue;
+            #endif
+
+            if (faults.open_leds[i]) open_count++;
+            if (faults.short_leds[i]) short_count++;
+        }
+
+        // If fault detected, flash ERR animation briefly then continue
+        if (open_count > 0 || short_count > 0) {
+            anim.start(PixPillAnim::Anim::ERR);
+            uint32_t err_start = HAL_GetTick();
+            while (HAL_GetTick() - err_start < 2000) {
+                anim.tick();
+                HAL_Delay(16);
+            }
+            anim.stop();
+        }
+    }
 
     sand.init();
     liquid.init();
