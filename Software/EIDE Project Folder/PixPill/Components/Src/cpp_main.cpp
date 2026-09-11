@@ -76,8 +76,8 @@ PixPillAnim anim(is31);
 // ===================== Gesture Detection =====================
 // Detect a quick up-down-up-down shake (4 direction changes in SHAKE_WINDOW_MS)
 
-static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
-static const uint32_t SHAKE_WINDOW_MS = 600;    // time window for gesture
+static const int16_t SHAKE_THRESHOLD = 10000;   // raw accel value to count as direction change
+static const uint32_t SHAKE_WINDOW_MS = 620;    // time window for gesture
 
 uint8_t  shake_count = 0;
 uint32_t shake_first_ms = 0;
