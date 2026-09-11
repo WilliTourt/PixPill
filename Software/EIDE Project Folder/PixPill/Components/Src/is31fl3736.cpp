@@ -328,7 +328,7 @@ void IS31FL3736::_parse_fault(const uint8_t reg[24], bool leds[96]) {
         for (uint8_t cs = 1; cs <= 8; cs++) {
             uint8_t addr = _onoff_addr(cs, sw);
             uint8_t bit  = _onoff_bit(cs);
-            uint8_t led_idx = (sw - 1) * 8 + (cs - 1);  // 0=SW1_CS1, 7=SW1_CS, ..., 95=SW12_CS8
+            uint8_t led_idx = (cs - 1) * 12 + (sw - 1);  // 0=SW1_CS1, 7=SW1_CS, ..., 95=SW12_CS8
             leds[led_idx] = (reg[addr] >> bit) & 1;
         }
     }

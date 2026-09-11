@@ -20,8 +20,8 @@
  * 
  *   Memory region         Used Size  Region Size  %age Used
  *                RAM:        2872 B         6 KB     46.74%
- *              FLASH:       32656 B        32 KB     99.66%    1# Capsule
- *              FLASH:       32648 B        32 KB     99.63%    000# Capsule
+ *              FLASH:       32676 B        32 KB     99.72%    1# Capsule
+ *              FLASH:       32684 B        32 KB     99.74%    000# Capsule
  *
  * @author:     WilliTourt <willitourt@foxmail.com>
  * @date        2026-07-10
@@ -77,7 +77,7 @@ PixPillAnim anim(is31);
 // Detect a quick up-down-up-down shake (4 direction changes in SHAKE_WINDOW_MS)
 
 static const int16_t SHAKE_THRESHOLD = 14000;   // raw accel value to count as direction change
-static const uint32_t SHAKE_WINDOW_MS = 570;    // time window for gesture
+static const uint32_t SHAKE_WINDOW_MS = 600;    // time window for gesture
 
 uint8_t  shake_count = 0;
 uint32_t shake_first_ms = 0;
@@ -163,7 +163,7 @@ static void blinkLedFast() {
 // ===================== Sleep / Shutdown =====================
 
 static const uint32_t IDLE_TIMEOUT_MS = 22000;
-static const int16_t  MOTION_DELTA_THRESHOLD = 500;  // min accel change to count as "moving"
+static const int16_t  MOTION_DELTA_THRESHOLD = 1250;  // min accel change to count as "moving"
 uint32_t last_active_ms = 0;
 int16_t  prev_ax_idle = 0, prev_ay_idle = 0;  // previous accel for idle detection
 
@@ -198,10 +198,10 @@ void cpp_main() {
     is31.setPWMAll(0xFF);
 
     is31.ledOnAll(45);
-    // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET);
-    HAL_Delay(300);
+    HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET);
+    HAL_Delay(500);
     is31.ledOffAll();
-    // HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
 
     // LED open/short detect — run once at boot before simulation starts
     IS31FL3736::FaultResult faults = is31.detectFaults();
@@ -221,7 +221,7 @@ void cpp_main() {
 
         // If fault detected, flash ERR animation briefly then continue
         if (open_count > 0 || short_count > 0) {
-            is31.setGCC(22);
+            is31.setGCC(25);
             anim.start(PixPillAnim::Anim::ERR);
             uint32_t err_start = HAL_GetTick();
             while (HAL_GetTick() - err_start < 3000) {
@@ -232,7 +232,7 @@ void cpp_main() {
         }
     }
 
-    is31.setGCC(22);
+    is31.setGCC(25);
 
     sand.init();
     liquid.init();

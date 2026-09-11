@@ -76,7 +76,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  // C011 无 LSE，PC14/PC15 即普通 GPIO，无需额外配置
+  
   /* USER CODE END Init */
 
   /* Configure the system clock */
