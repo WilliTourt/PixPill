@@ -6,7 +6,7 @@
 
 > The project materials are still being sorted, expected to be completed by early Sep.
 
-PixPill is a tiny gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
+PixPill is a tiny glowing gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
 
 Its tiny PCB dimensions (23.9×8.6 mm / 19.5×6.9 mm) are deliberately aligned with standardized size 000 (26.1×8.5 mm) and size 1 (19.4×6.9 mm) pill capsules.
 
@@ -79,7 +79,7 @@ Components/
 - **Compiler:** `arm-none-eabi-g++` (**-Os**)
 - **Desktop simulators:** `sand_visual_sim.py` / `liquid_visual_sim.py` — tune particle parameters directly on PC before flashing
 
-Pre-built firmware is also provided; flash directly via STM32 CubeProgrammer or similar tools.
+Pre-built firmware is also provided; flash directly via STM32 CubeProgrammer or similar tools, via SWD.
 
 ### Prerequisites
 
@@ -103,12 +103,6 @@ Pre-built firmware is also provided; flash directly via STM32 CubeProgrammer or 
 
 - **Back LED fast blink (100 ms) & array shows "ERR"** → nPM1100 fault (ERR pin active)
 - **Back LED breathing & array shows battery icon for 4 seconds** → USB charging plugged in
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE)
 
 ---
 

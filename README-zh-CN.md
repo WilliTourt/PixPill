@@ -6,11 +6,11 @@
 
 > 此项目资料仍在整理中，预计九月初完成
 
-PixPill 像素胶囊 是一颗比真实胶囊大不了多少的小玩意。在四层 HDI 微型 PCB 上，塞进了一颗 STM32C011 主控、一颗 BMA530 加速度计、一颗 IS31FL3736 LED 矩阵驱动芯片、96 颗微型 LED，以及一颗 nPM1100 电源管理芯片。固件跑的是一套基于物理的粒子模拟——倾斜它，沙子会倾泻、液体会流动。
+PixPill 像素胶囊 是一颗比真实胶囊大不了多少的发光小玩意。在四层 HDI 微型 PCB 上，塞进了一颗 STM32C011 主控、一颗 BMA530 加速度计、一颗 IS31FL3736 LED 矩阵驱动芯片、96 颗微型 LED，以及一颗 nPM1100 电源管理芯片。固件跑的是一套基于物理的粒子模拟——倾斜它，沙子会倾泻、液体会流动。
 
 其微小的PCB面积（23.9x8.6 mm / 19.5x6.9 mm）有意对齐了标准化的000号（26.1x8.5 mm）和1号胶囊的大小（19.4x6.9 mm）。
 
-欲了解详细的硬件设计和3D相关，请查阅 [Hardware Design_zh-CN.md](Hardware/Hardware%20Design_zh-CN.md)。欲了解软件相关，请查阅 [Software Design_zh-CN.md](Software/Software%20Design_zh-CN.md)。
+欲了解详细的硬件设计和3D外壳相关，请查阅 [Hardware Design_zh-CN.md](Hardware/Hardware%20Design_zh-CN.md)。欲了解软件相关，请查阅 [Software Design_zh-CN.md](Software/Software%20Design_zh-CN.md)。
 
 ---
 
@@ -19,7 +19,7 @@ PixPill 像素胶囊 是一颗比真实胶囊大不了多少的小玩意。在�
 - **「小」** — PCB 最窄仅 6.9 mm 直径，能塞进真实的药丸胶囊
 - **两种物理模式** — 沙粒（颗粒感，会自然堆叠）和液体（类 SPH 流体，有密度压力）
 - **手势控制** — 上下上下快速摇晃即可切换沙子/液体模式
-- **自动休眠** — 静止 22 秒后进入 nPM1100 船运模式（关机）以保存电量
+- **自动休眠** — 静止 22 秒以上进入 nPM1100 船运模式（关机）以保存电量
 - **USB 充电** — microUSB 用于充电
 - **故障检测** — nPM1100 ERR 引脚触发时 LED 阵列闪烁报警，暂停正常运行
 - **动画过渡** — 开机、关机、充电、故障各有 LED 动画
@@ -47,7 +47,7 @@ PixPill 像素胶囊 是一颗比真实胶囊大不了多少的小玩意。在�
 - 基于元胞自动机的经典 falling-sand 算法
 - 提供8个重力方向，符合沙粒自然堆叠角
 - 粒子沿重力方向自然堆叠，倾斜即倾泻
-- 帧率随倾斜角度自适应
+- 帧率（沙粒流速）随倾斜角度自适应
 
 ### 液体模式
 
@@ -79,7 +79,7 @@ Components/
 - **编译器：** `arm-none-eabi-g++` (**-Os**)
 - **桌面模拟器：** `sand_visual_sim.py` / `liquid_visual_sim.py` — 更方便地在 PC 直接模拟粒子效果，调参数
 
-此外提供了已编译好的固件，可以直接通过 STM32 CubeProgrammer 等烧录程序烧录到 MCU。
+此外提供了已编译好的固件，可以直接通过 STM32 CubeProgrammer 等烧录程序，通过 SWD 烧录到 MCU。
 
 ---
 
@@ -103,12 +103,6 @@ Components/
 ### 状态指示
 - **背面LED快闪（100ms）且阵列显示"ERR"** → nPM1100 故障（ERR 引脚激活）
 - **背面LED呼吸，阵列显示电池图案4秒** → 插入了 USB 充电
-
----
-
-## 许可证
-
-MIT — 详见 [LICENSE](LICENSE)
 
 ---
 
