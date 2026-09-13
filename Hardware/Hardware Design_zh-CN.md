@@ -1,8 +1,10 @@
-﻿# 🧱 PixPill 硬件设计
+﻿# PixPill 硬件设计
 
-> 原理图、PCB、BOM 与焊接装配指南
+> 原理图、PCB、BOM 与壳体装配指南
 
 PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验证板到最终胶囊尺寸的设计，硬件方案在极小的空间内集成了 MCU、IMU、LED 驱动、96 颗微型 LED、PMIC 和锂电池。
+
+![PixPill Model](PixPill%20000%20Model.png)
 
 ---
 
@@ -18,7 +20,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
         ┌──────▼─────────────────▼─────────────┐
         │           STM32C011D6Y6TR            │
         │          Cortex-M0+ @ 48 MHz         │
-        │             WLCSP12                  │
+        │               WLCSP12                │
         └──┬───────────┬──────────┬────────────┘
            │ I2C1      │ TIM3_CH2 │ SHPACT (PC15)
            │ (SCL:PB6  │ PA7      │ → Ship Mode
@@ -32,7 +34,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
   └─────────┘  │
                │
   ┌────────────▼──────────────┐
-  │      IS31FL3736           │
+  │        IS31FL3736         │
   │  12×8 LED Matrix Driver   │
   │  I2C, per-LED 8-bit PWM   │
   └────────────┬──────────────┘
@@ -47,11 +49,13 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 ## 原理图连接
 
+![Schematic](./EDA%20Images/Schem.png)
+
 ### MCU 与 IMU
 
 | MCU Pin | 功能 | 连接到 |
 |---------|------|--------|
-| PA7 | TIM3_CH2 (PWM) | LED_STATUS（背面状态指示灯，通过三极管驱动） |
+| PA7 | TIM3_CH2 (PWM) | LED_STATUS |
 | PA8 | GPIO Input (pull-up) | nPM1100 ERR |
 | PB6 | I2C1_SCL | BMA530 SCL + IS31FL3736 SCL |
 | PC14 | I2C1_SDA | BMA530 SDA + IS31FL3736 SDA |
@@ -60,7 +64,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 - **BMA530** I2C 地址：`0x18 << 1`
 - **IS31FL3736** I2C 地址：`0x50 << 1`
-- 两者挂在同一组 I2C1 总线上
+- 两者挂在同一 I2C1 总线上
  
 ### 电源管理（nPM1100）
 
@@ -74,7 +78,43 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 - 12×8 矩阵驱动，实际使用 96 个 LED 位置（胶囊形状裁剪）
 - I2C 分页寄存器寻址（Frame 0-7），每 LED 独立 8-bit PWM
-- GCC（全局电流控制）初始值 18，可根据电池电量和LED亮度调整
+- GCC（全局电流控制）初始值 25，可根据电池电量和LED亮度调整
+
+---
+
+## PCB 设计
+
+| 000# | 1# |
+| --- | --- |
+| ![Top of 000#](./EDA%20Images/000%20PCB%20Top.png) | ![Top of 1#](./EDA%20Images/1%20PCB%20Top.png) |
+| ![Bottom of 000#](./EDA%20Images/000%20PCB%20Bottom.png) | ![Bottom of 1#](./EDA%20Images/1%20PCB%20Bottom.png) |
+
+### 工艺参数
+
+| 参数 | 值 |
+|------|-----|
+| 层数 | 4 层一阶 HDI |
+| 板厚 | 1.2 mm |
+| 最小线宽/线距 | 2.7 mil |
+| 最小孔径 | 0.1 mm（激光盲孔）/ 0.25 mm（机械通孔） |
+| 表面处理 | OSP，盘中孔工艺，电镀盖帽 |
+| 阻焊颜色 | 紫色 |
+
+### 层叠结构
+
+| L4 | L3 | L2 | L1 |
+| --- | --- | --- | --- |
+| ![Bottom](./EDA%20Images/Bottom.png) | ![Inner2](./EDA%20Images/Inner2.png) | ![Inner1](./EDA%20Images/Inner1.png) | ![Top](./EDA%20Images/Top.png) |
+
+| 层 | 用途 |
+|----|------|
+| **Top (L1)** | MCU (WLCSP12)、BMA530 (WLCSP6)、IS31FL3736 (QFN)、电池焊盘、SWD、USB + 地 |
+| **Inner1 (L2)** | 信号 + 电源 + 地 |
+| **Inner2 (L3)** | LED SW/CS 信号 |
+| **Bottom (L4)** | LED 阵列 |
+
+- L1→L2 使用激光盲孔（微孔），L2→L3 使用埋孔，L3→L4 使用盲孔
+- 部分WLCSP焊盘为盘中孔（激光盲孔）
 
 ### LED 阵列布局
 
@@ -96,34 +136,18 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 - **000#** 使用 96×0402 LED（更大封装，容易手工焊接）
 - **1#** 使用 90×0201 LED（极小封装，需要显微镜和精密焊接）
 
+### 成本
+
+值得一提，由于是小体积HDI，PCB板子成本**非常高**，成本主要来源于HDI工程费用、盲埋孔费用和测试费。下图是我从 JLCPCB 订购 135 块 EBA 拼板的报价，单价约为 **11.4 人民币/块**（含运费）。钢网另算 60 元。
+
+![Costing](PCB%20Costing.png)
+
+*目前我仍保留有约 120 块 EBA 板子，如果你想复刻此项目，可以通过邮箱 (willitourt@foxmail.com) 联系我获取！我将以 **13 人民币/块** 的成本价出售给你。运费自理。*
+
+
 ---
 
-## PCB 设计
-
-### 工艺参数
-
-| 参数 | 值 |
-|------|-----|
-| 层数 | 4 层一阶 HDI |
-| 板厚 | 1.2 mm |
-| 最小线宽/线距 | 2.7 mil |
-| 最小孔径 | 0.1 mm（激光盲孔）/ 0.25 mm（机械通孔） |
-| 表面处理 | OSP，盘中孔工艺，电镀盖帽 |
-| 阻焊颜色 | 紫色 |
-
-### 层叠结构
-
-| 层 | 用途 |
-|----|------|
-| **Top** | MCU (WLCSP12)、BMA530 (WLCSP6)、IS31FL3736 (QFN)、电池焊盘、SWD、USB + 地 |
-| **Inner1 (L2)** | 信号 + 电源 + 地 |
-| **Inner2 (L3)** | LED SW/CS 信号 |
-| **Bottom** | LED 阵列 |
-
-- L1→L2 使用激光盲孔（微孔），L2→L3 使用埋孔，L3→L4 使用激光盲孔
-- 部分WLCSP焊盘为盘中孔（激光盲孔）
-
-### PCB变体
+### PCB 变体
 
 | 变体 | PCB 尺寸 | LED 封装 | 状态 |
 |------|----------|----------|----------|
@@ -131,14 +155,15 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 | **EVK v2** | 41.979×24 mm | 0201, 96 LEDs | 验证板，可生产 |
 | **000#** | 23.9×8.6 mm | 0402, 96 LEDs | 可生产 |
 | **1#** | 19.5×6.9 mm | 0201, 96 LEDs | 可生产 |
+| **EBA**(Embedded Board Array) | - | - | 可生产 |
 
-EVK v1/v2 是标准 2 层板（无 HDI），用于固件开发和元件验证。000# 和 1# 为四层 HDI，减小到胶囊尺寸。
+EVK v1/v2 是标准 2 层板，用于固件开发和元件验证。000# 和 1# 为四层 HDI，减小到胶囊尺寸。EBA 为000#和1#的拼板。
 
 ---
 
 ## BOM
 
-详见 [PCBs 目录](PCBS)，包含 `BOM_EVK_V2_TestSchematic_2.xlsx`,`BOM_000# Capsule_Schematic2.xlsx`,`BOM_7_19 1# Capsule_Schematic1.xlsx`。
+详见 [PCBs 目录](PCBS)，包含 `BOM_EVK_V2_TestSchematic_2.xlsx`，`BOM_000# Capsule_Schematic2.xlsx`，`BOM_7_19 1# Capsule_Schematic1.xlsx`。
 
 主要元器件有：
 
@@ -146,54 +171,33 @@ EVK v1/v2 是标准 2 层板（无 HDI），用于固件开发和元件验证。
 - **IMU**：BMA530 WLCSP6
 - **LED 驱动**：IS31FL3736 QFN(5x5mm)
 - **LED**：96×0402/0201
-- **PMIC**：nPM1100 WLCSP25
+- **PMIC**：nPM1100-**CAAA-E-R7** WLCSP25
 
 ---
 
-## 焊接与装配要点
+## 焊接与装配
 
-### 工具和耗材要求
-
-- **显微镜**：BGA 和 0201 元件必须使用放大镜或显微镜
-- **烙铁**：细尖头
-- **加热台&热风枪**：用于 WLCSP 和 BGA 封装回流（推荐LED面使用加热台，芯片面使用风枪）
-- **锡膏**：推荐首面183℃锡膏，第二面使用138℃低温锡膏（1# 推荐开钢网）
-- 助焊剂，细尖镊，焊锡，洗板水...
-
-### 推荐焊接顺序
-
-1. **LED 阵列**（刷好锡膏，LED逐颗 **（推荐分批）** 摆好，然后批量加热）
-2. **SMD RCL**
-3. **nPM1100**、**IS31FL3736**、**BMA530**、**STM32C011**（热风回流）
-4. **MicroUSB 座子，按钮**
-5. **电池**（烙铁焊接）
-
-### 注意事项
-
-- **BGA**：WLCSP 和 BGA 封装注意检查植锡情况是否均匀，**焊好后必须确认是否有一边翘起或底部渗锡的不良情况**
-- **0201 LED**：极小，轻微移动就会移位。强烈建议分批焊接
-- **nPM1100**：焊接完成后先接 USB，确认 VOUTB 输出约 3.0~3.2V，再确认自动关机时3.0V对地是否降到0.5V左右且持续慢慢降低，如果维持3.1V左右，则极大概率是nPM1100虚焊，请重新焊接。
-- **电池**：务必最后焊接电池，避免焊接过程中电池短路或反接。确认极性正确
+详情见 [Assembling Guide_zh-CN.md](Assembling%20Guide_zh-CN.md)。
 
 ---
 
 ## 3D 壳体
 
-### 结构组成
+所有零件模型均在 [3D Shell 目录](3D%20Shell/) 下。提供 SLDPRT、SLDASM、STEP、STL、3MF。
+
+
+
+### 组成
 
 | 部件 | 材料 | 工艺 |
 |------|------|------|
-| 外壳主体 | 透明树脂 / PLA | 3D 打印（FDM 或 SLA，强烈推荐SLA）（可选的打磨抛光） |
-| 按钮固定件 | 通用3D打印耗材 | 3D 打印 |
+| 外壳主体 | 8001透明树脂 / PLA | 3D 打印（FDM 或 SLA，强烈推荐SLA）（可选的打磨抛光） |
+| 按钮固定件 | 通用3D打印耗材 | 3D 打印（推荐SLA） |
 | PCB 固定 | - | 直接嵌入壳体内 |
 
 ### 装配顺序
 
-1. PCB 焊接完成、烧录固件并测试通过
-2. 电池焊接后，将 PCB 插入下壳体卡槽
-3. 安装按钮固定件到壳体预留位置
-4. 扣合上壳体，壳体有轻微的过盈配合
-5. 插入 microUSB 唤醒，确认运行正常
+详情见 [Assembling Guide_zh-CN.md](Assembling%20Guide_zh-CN.md)。
 
 ---
 

@@ -1,8 +1,10 @@
-# 🧱 PixPill Hardware Design
+# PixPill Hardware Design
 
-> Schematic, PCB, BOM, and Soldering & Assembly Guide
+> Schematics, PCB, BOM, and enclosure assembly guide
 
-PixPill went through the iteration process of EVK v1 → EVK v2 → 000# + 1#. From the EVK validation board to the final capsule-sized design, the hardware integrates an MCU, IMU, LED driver, 96 micro LEDs, PMIC, and Li-Po battery into an extremely compact space.
+PixPill went through the EVK v1 → EVK v2 → 000# + 1# iterations. From the EVK validation boards to the final capsule-sized designs, the hardware integrates an MCU, IMU, LED driver, 96 micro LEDs, PMIC, and Li-Po battery in an extremely compact space.
+
+![PixPill Model](PixPill%20000%20Model.png)
 
 ---
 
@@ -18,7 +20,7 @@ PixPill went through the iteration process of EVK v1 → EVK v2 → 000# + 1#. F
         ┌──────▼─────────────────▼─────────────┐
         │           STM32C011D6Y6TR            │
         │          Cortex-M0+ @ 48 MHz         │
-        │             WLCSP12                  │
+        │               WLCSP12                │
         └──┬───────────┬──────────┬────────────┘
            │ I2C1      │ TIM3_CH2 │ SHPACT (PC15)
            │ (SCL:PB6  │ PA7      │ → Ship Mode
@@ -32,7 +34,7 @@ PixPill went through the iteration process of EVK v1 → EVK v2 → 000# + 1#. F
   └─────────┘  │
                │
   ┌────────────▼──────────────┐
-  │      IS31FL3736           │
+  │        IS31FL3736         │
   │  12×8 LED Matrix Driver   │
   │  I2C, per-LED 8-bit PWM   │
   └────────────┬──────────────┘
@@ -47,44 +49,82 @@ PixPill went through the iteration process of EVK v1 → EVK v2 → 000# + 1#. F
 
 ## Schematic Connections
 
-### MCU & IMU
+![Schematic](./EDA%20Images/Schem.png)
 
-| MCU Pin | Function | Connected To |
-|---------|----------|-------------|
-| PA7 | TIM3_CH2 (PWM) | LED_STATUS (rear status indicator, driven via transistor) |
-| PA8 | GPIO Input (pull-up) | nPM1100 ERR |
+### MCU and IMU
+
+| MCU Pin | Function | Connected to |
+|---------|----------|--------------|
+| PA7 | TIM3_CH2 (PWM) | LED_STATUS |
+| PA8 | GPIO input (pull-up) | nPM1100 ERR |
 | PB6 | I2C1_SCL | BMA530 SCL + IS31FL3736 SCL |
 | PC14 | I2C1_SDA | BMA530 SDA + IS31FL3736 SDA |
-| PB7 | GPIO Input (pull-up) | nPM1100 CHG |
-| PC15 | GPIO Output | nPM1100 SHPACT (ship mode control) |
+| PB7 | GPIO input (pull-up) | nPM1100 CHG |
+| PC15 | GPIO output | nPM1100 SHPACT (ship-mode control) |
 
 - **BMA530** I2C address: `0x18 << 1`
 - **IS31FL3736** I2C address: `0x50 << 1`
-- Both share the same I2C1 bus
+- Both devices share the same I2C1 bus.
 
 ### Power Management (nPM1100)
 
 - **VBUS** (microUSB) → nPM1100 charging input
-- **VOUTB** (3.0V LDO output) → powers MCU + BMA530 + IS31FL3736 + LED array
-- **CHG** pin → PB7 (charge status indicator, low = charging)
-- **ERR** pin → PA8 (fault indicator, low = fault)
-- **SHPACT** pin → PC15 (high = enter ship mode, shuts down VOUTB)
+- **VOUTB** (3.0 V LDO output) → MCU, BMA530, IS31FL3736, and LED array
+- **CHG** → PB7 (charge-status indicator, low = charging)
+- **ERR** → PA8 (fault indicator, low = fault)
+- **SHPACT** → PC15 (high = enter ship mode and shut down VOUTB)
 
 ### IS31FL3736 LED Matrix
 
-- 12×8 matrix driver, using 96 LED positions (pill-shaped crop)
-- I2C paged register addressing (Frame 0-7), per-LED independent 8-bit PWM
-- GCC (Global Current Control) initial value 18, adjustable based on battery level and LED brightness
+- 12×8 matrix driver, with 96 LED positions used in the pill-shaped layout
+- I2C paged register addressing (Frames 0–7), with independent 8-bit PWM for each LED
+- Initial GCC (global current control) value: 25; adjust it according to battery level and LED brightness
+
+---
+
+## PCB Design
+
+| 000# | 1# |
+| --- | --- |
+| ![Top of 000#](./EDA%20Images/000%20PCB%20Top.png) | ![Top of 1#](./EDA%20Images/1%20PCB%20Top.png) |
+| ![Bottom of 000#](./EDA%20Images/000%20PCB%20Bottom.png) | ![Bottom of 1#](./EDA%20Images/1%20PCB%20Bottom.png) |
+
+### Process Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Layers | 4-layer, 1st-order HDI |
+| Board thickness | 1.2 mm |
+| Minimum trace/space | 2.7 mil |
+| Minimum hole size | 0.1 mm (laser blind microvia) / 0.25 mm (mechanical through-hole) |
+| Surface finish | OSP, via-in-pad, plated cap |
+| Solder mask color | Purple |
+
+### Stackup
+
+| L4 | L3 | L2 | L1 |
+| --- | --- | --- | --- |
+| ![Bottom](./EDA%20Images/Bottom.png) | ![Inner2](./EDA%20Images/Inner2.png) | ![Inner1](./EDA%20Images/Inner1.png) | ![Top](./EDA%20Images/Top.png) |
+
+| Layer | Purpose |
+|-------|---------|
+| **Top (L1)** | MCU (WLCSP12), BMA530 (WLCSP6), IS31FL3736 (QFN), battery pads, SWD, USB, and GND |
+| **Inner1 (L2)** | Signals, power, and GND |
+| **Inner2 (L3)** | LED SW/CS signals |
+| **Bottom (L4)** | LED array |
+
+- L1→L2 uses laser blind microvias, L2→L3 uses buried vias, and L3→L4 uses blind vias.
+- Some WLCSP pads use via-in-pad laser microvias.
 
 ### LED Array Layout
 
-Pill-shaped 96(90) LED layout, arranged from top to bottom as shown below:
+The pill-shaped 96 (000#) / 90 (1#) LED layout is arranged from top to bottom as follows:
 
 ```
    000# (0402) LED:                     1# (0201) LED:
-       ○ ○          Row 0                 ┌─────┐        Row 0-1 Button
-     ○ ○ ○ ○        Row 1                 └─────┘        
-   ○ ○ ○ ○ ○ ○      Rows 2-15           ○ ○ ○ ○ ○ ○      Rows 2-15
+       ○ ○          Row 0                 ┌─────┐        Row 0–1 Button
+     ○ ○ ○ ○        Row 1                 └─────┘
+   ○ ○ ○ ○ ○ ○      Rows 2–15           ○ ○ ○ ○ ○ ○      Rows 2–15
    ○ ○ ○ ○ ○ ○                          ○ ○ ○ ○ ○ ○
    ○ ○ ○ ○ ○ ○      (full rows)         ○ ○ ○ ○ ○ ○      (full rows)
        ...          (12 rows of 6)          ...          (12 rows of 6)
@@ -93,107 +133,66 @@ Pill-shaped 96(90) LED layout, arranged from top to bottom as shown below:
        ○ ○          Row 17                  ○ ○          Row 17
 ```
 
-- **000#** uses 96×0402 LEDs (larger package, easier to hand-solder)
-- **1#** uses 90×0201 LEDs (ultra-small package, requires microscope and precision soldering)
+- **000#** uses 96×0402 LEDs (larger packages, easier to hand-solder).
+- **1#** uses 90×0201 LEDs (extremely small; a microscope and precision soldering are required).
 
----
+### Cost
 
-## PCB Design
+Because these are small HDI boards, the PCB cost is **very high**, mainly due to HDI engineering, blind/buried vias, and testing. The quotation below is for 135 EBA panels ordered from JLCPCB: approximately **RMB 11.4 per board**, including shipping. The stencil cost an additional RMB 60.
 
-### Process Parameters
+![Costing](PCB%20Costing.png)
 
-| Parameter | Value |
-|-----------|-------|
-| Layers | 4-layer 1st-order HDI |
-| Board thickness | 1.2 mm |
-| Min trace/space | 2.7 mil |
-| Min hole size | 0.1 mm (laser microvia) / 0.25 mm (mechanical through-hole) |
-| Surface finish | OSP, via-in-pad process, plated cap |
-| Solder mask color | Purple |
-
-### Stackup
-
-| Layer | Purpose |
-|-------|---------|
-| **Top** | MCU (WLCSP12), BMA530 (WLCSP6), IS31FL3736 (QFN), battery pads, SWD, USB + GND |
-| **Inner1 (L2)** | Signal + Power + GND |
-| **Inner2 (L3)** | LED SW/CS signals |
-| **Bottom** | LED array |
-
-- L1→L2 uses laser microvias, L2→L3 uses buried vias, L3→L4 uses laser microvias
-- Some WLCSP pads are via-in-pad (laser microvia)
+*Approximately 120 EBA boards are still available. If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 13 per board**, excluding shipping.*
 
 ### PCB Variants
 
-| Variant | PCB Size | LED Package | Status |
+| Variant | PCB size | LED package | Status |
 |---------|----------|-------------|--------|
 | **EVK v1** | 22×22 mm | 0402, 64 LEDs | Deprecated |
 | **EVK v2** | 41.979×24 mm | 0201, 96 LEDs | Validation board, producible |
 | **000#** | 23.9×8.6 mm | 0402, 96 LEDs | Producible |
 | **1#** | 19.5×6.9 mm | 0201, 96 LEDs | Producible |
+| **EBA** (Embedded Board Array) | — | — | Producible |
 
-EVK v1/v2 are standard 2-layer boards (no HDI), used for firmware development and component validation. 000# and 1# are 4-layer HDI, shrunk to capsule dimensions.
+EVK v1/v2 are standard 2-layer boards for firmware development and component validation. 000# and 1# are 4-layer HDI boards reduced to capsule dimensions. EBA is a panel containing 000# and 1# boards.
 
 ---
 
 ## BOM
 
-See the [PCBS directory](PCBS) for `BOM_EVK_V2_TestSchematic_2.xlsx`, `BOM_000# Capsule_Schematic2.xlsx`, and `BOM_7_19 1# Capsule_Schematic1.xlsx`.
+See the [PCBs directory](PCBS), which contains `BOM_EVK_V2_TestSchematic_2.xlsx`, `BOM_000# Capsule_Schematic2.xlsx`, and `BOM_7_19 1# Capsule_Schematic1.xlsx`.
 
 Key components:
 
 - **MCU**: STM32C011D6Y6TR WLCSP12
 - **IMU**: BMA530 WLCSP6
-- **LED Driver**: IS31FL3736 QFN (5×5 mm)
+- **LED driver**: IS31FL3736 QFN (5×5 mm)
 - **LEDs**: 96×0402/0201
-- **PMIC**: nPM1100 WLCSP25
+- **PMIC**: nPM1100-**CAAA-E-R7** WLCSP25
 
 ---
 
-## Soldering & Assembly Tips
+## Soldering and Assembly
 
-### Required Tools & Supplies
-
-- **Microscope**: essential for BGA and 0201 components
-- **Soldering iron**: fine tip
-- **Hot plate & hot air gun**: for WLCSP and BGA reflow (hot plate recommended for LED side, hot air gun for IC side)
-- **Solder paste**: recommended 183°C paste for the first side, 138°C low-temperature paste for the second side (stencil recommended for 1#)
-- Flux, fine-tip tweezers, solder, board cleaning solution...
-
-### Recommended Soldering Order
-
-1. **LED array** (apply solder paste, place LEDs one by one **—recommended in batches—**, then batch reflow)
-2. **SMD RCL**
-3. **nPM1100**, **IS31FL3736**, **BMA530**, **STM32C011** (hot air reflow)
-4. **MicroUSB connector, button**
-5. **Battery** (soldering iron)
-
-### Important Notes
-
-- **BGA**: For WLCSP and BGA packages, check for even solder ball distribution. **After soldering, verify that no side is lifted and there is no solder bridging underneath.**
-- **0201 LEDs**: Extremely small; slight movement will cause misalignment. Batch soldering is strongly recommended.
-- **nPM1100**: After soldering, connect USB first and verify VOUTB outputs ~3.0–3.2V. Then confirm that during auto power-off, the 3.0V rail drops to ~0.5V against GND and continues to slowly decrease. If it stays around 3.1V, nPM1100 is very likely poorly soldered—rework it.
-- **Battery**: Always solder the battery last to avoid short circuits or reverse polarity during soldering. Double-check polarity is correct.
+See the [Assembling Guide](Assembling%20Guide.md) for detailed PCB soldering and enclosure assembly instructions.
 
 ---
 
 ## 3D Enclosure
 
-### Structure
+All part models are in the [3D Shell directory](3D%20Shell/), provided in SLDPRT, SLDASM, STEP, STL, and 3MF formats.
+
+### Components
 
 | Part | Material | Process |
 |------|----------|---------|
-| Shell body | Clear resin / PLA | 3D printing (FDM or SLA, SLA strongly recommended) (optional sanding & polishing) |
-| Button retainer | Generic 3D printing filament | 3D printing |
-| PCB mounting | - | Directly embedded into shell slots |
+| Main shell | 8001 clear resin / PLA | 3D printing (FDM or SLA; SLA strongly recommended), with optional sanding and polishing |
+| Button retainer | General-purpose 3D-printing material | 3D printing (SLA recommended) |
+| PCB mounting | — | Directly embedded in the enclosure |
 
 ### Assembly Order
 
-1. PCB soldering completed, firmware flashed and tested
-2. After battery soldering, insert PCB into the lower shell slot
-3. Install button retainer into the shell's reserved position
-4. Snap on the upper shell (shells use a slight interference fit)
-5. Plug in microUSB to wake up, verify normal operation
+See the [Assembling Guide](Assembling%20Guide.md) for the complete assembly order.
 
 ---
 
@@ -201,9 +200,9 @@ Key components:
 
 | File | Format | Description |
 |------|--------|-------------|
-| Schematics | PNG | In `PCBs/Schems and Layout/`, organized by variant subdirectories |
-| PCB Layout | PNG | Top/bottom/inner layers, same directories as above |
-| Gerber files | ZIP | In `PCBs/Gerber/`, organized by variant and process |
-| LCEDA Project | epro2 | `PCBs/EasyEDA(LCEDA) Projects/` |
-| 3D Enclosure | STEP / STL | `3D Shell/STEP_STL_3MF/` |
-| SolidWorks Source | SLDASM / SLDPRT | `3D Shell/SW/` |
+| Schematics | PNG | Variant subdirectories under `PCBs/Schems and Layout/` |
+| PCB layouts | PNG | Top, bottom, and inner layers in the same directories |
+| Gerber files | ZIP | Variant- and process-specific files under `PCBs/Gerber/` |
+| LCEDA projects | epro2 | `PCBs/EasyEDA(LCEDA) Projects/` |
+| 3D enclosure | STEP / STL | `3D Shell/STEP_STL_3MF/` |
+| SolidWorks source | SLDASM / SLDPRT | `3D Shell/SW/` |

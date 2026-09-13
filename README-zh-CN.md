@@ -8,9 +8,11 @@
 
 PixPill 像素胶囊 是一颗比真实胶囊大不了多少的发光小玩意。在四层 HDI 微型 PCB 上，塞进了一颗 STM32C011 主控、一颗 BMA530 加速度计、一颗 IS31FL3736 LED 矩阵驱动芯片、96 颗微型 LED，以及一颗 nPM1100 电源管理芯片。固件跑的是一套基于物理的粒子模拟——倾斜它，沙子会倾泻、液体会流动。
 
+![PixPill in Fenbid Capsule](pixpill.jpg)
+
 其微小的PCB面积（23.9x8.6 mm / 19.5x6.9 mm）有意对齐了标准化的000号（26.1x8.5 mm）和1号胶囊的大小（19.4x6.9 mm）。
 
-欲了解详细的硬件设计和3D外壳相关，请查阅 [Hardware Design_zh-CN.md](Hardware/Hardware%20Design_zh-CN.md)。欲了解软件相关，请查阅 [Software Design_zh-CN.md](Software/Software%20Design_zh-CN.md)。
+欲了解详细的硬件设计和3D外壳相关，以及硬件组装指南，请查阅 [Hardware Design_zh-CN.md](Hardware/Hardware%20Design_zh-CN.md)。欲了解软件相关，请查阅 [Software Design_zh-CN.md](Software/Software%20Design_zh-CN.md)。
 
 ---
 

@@ -43,12 +43,12 @@ Components/
 | Resource | Usage | Notes |
 | ------- | ------- | ------- |
 | **RAM** | 2872 B / 6 KB (46.74%) | Includes stack, particle buffers, lookup tables |
-| **FLASH** | 32656 B / 32 KB (99.66%) | Extremely compact under -Os optimization; flash usage is nearly full |
+| **FLASH** | 32656 B / 32 KB (99.7%) | Extremely compact under -Os optimization; flash usage is nearly full |
 | **I2C** | I2C1 (PB6-SCL, PC14-SDA) | Shared by BMA530 (addr 0x18 << 1) + IS31FL3736 (addr 0x50 << 1) |
 | **TIM3_CH2** | PA7 — LED_STATUS breathing | 1kHz PWM, sin² 64-step LUT |
 | **GPIO** | PA8 (ERR), PB7 (CHG), PC15 (SHPACT) | nPM1100 monitoring & control |
 
-Roughly one third of FLASH is consumed by LUTs. Given the C011's 48 MHz computational ceiling, precomputed tables are used extensively to keep the simulation fluent.
+Roughly one third of FLASH is consumed by LUTs. Given the C011's 48 MHz computational ceiling and lack of an FPU, precomputed tables are used extensively to keep the simulation fluent.
 
 ---
 
@@ -60,7 +60,7 @@ Roughly one third of FLASH is consumed by LUTs. Given the C011's 48 MHz computat
       BOOT → Boot animation ("PIXPILL" scrolling text)
         ↓
     RUNNING → Physics simulation (default: liquid mode)
-        │ 4 shakes within 570ms  → toggle sand/liquid
+        │ 4 shakes within 620ms  → toggle sand/liquid
         │ Still 22s              → SHUTDOWN
         │ nPM ERR                → fault handling
         │ USB plug-in            → charging indicator 4s then resume
@@ -134,21 +134,21 @@ Shake gesture detection via **BMA530 X-axis direction change counting**.
 ### Algorithm
 
 ```
-Threshold SHAKE_THRESHOLD = 14000 (~±0.9g)
-Window SHAKE_WINDOW_MS = 570 ms
+Threshold SHAKE_THRESHOLD = 10000 (~±0.6g)
+Window SHAKE_WINDOW_MS = 620 ms
 Target = 8 direction flips (i.e., 4 up-down shake cycles)
 
 1. Read accelerometer X-axis raw value each frame
-2. Exceeding ±14000 counts as a valid direction signal
+2. Exceeding ±10000 counts as a valid direction signal
 3. Direction flip → counter +1
-4. 8 flips within 570ms → trigger mode toggle
+4. 8 flips within 620ms → trigger mode toggle
 5. Timeout → reset counter
 ```
 
 ### Design Considerations
 
-- **Short detection window (570ms)**: Prevents false triggers during normal handling
-- **High threshold (14000)**: Requires a clear, rapid shake motion
+- **Short detection window (620ms)**: Prevents false triggers during normal handling
+- **High threshold (10000)**: Requires a clear, rapid shake motion
 - **X-axis only**: Reduces false positives; up-down shake is most natural
 
 ---
@@ -158,7 +158,7 @@ Target = 8 direction flips (i.e., 4 up-down shake cycles)
 ### nPM1100 Ship Mode
 
 - **Entry condition**: Still for 22 seconds
-- **Idle detection**: Frame-by-frame comparison of BMA530 acceleration delta. Uses `MOTION_DELTA_THRESHOLD=200` — acceleration delta below threshold in any orientation counts as still
+- **Idle detection**: Frame-by-frame comparison of BMA530 acceleration delta. Uses `MOTION_DELTA_THRESHOLD=1250` — acceleration delta below threshold in any orientation counts as still
 - **Shutdown sequence**: Play shutdown animation → SHPACT high (if not charging, 3.0V VOUTB will be cut, MCU will lose power) → STOP mode
 
 ### Charging Detection
