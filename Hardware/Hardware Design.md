@@ -6,7 +6,9 @@
 
 PixPill went through the EVK v1 → EVK v2 → 000# + 1# iterations. From the EVK validation boards to the final capsule-sized designs, the hardware integrates an MCU, IMU, LED driver, 96 micro LEDs, PMIC, and Li-Po battery in an extremely compact space.
 
-![PixPill Model](PixPill%20000%20Model.png)
+<img src="PixPill%20000%20Model.png" alt="PixPill Model" style="width: 65%; height: auto; align: center;">
+
+<img src="Pixpill%20000%20Render.png" alt="PixPill Render" style="width: 65%; height: auto; align: center;">
 
 ---
 
@@ -42,7 +44,7 @@ PixPill went through the EVK v1 → EVK v2 → 000# + 1# iterations. From the EV
   └────────────┬──────────────┘
                │ 96× LED Matrix
      ┌─────────▼───────────┐
-     │  96× 0201/0402 LEDs │
+     │ 96× 0402 / 90× 0201 │
      │  Pill-shaped layout │
      └─────────────────────┘
 ```
@@ -135,8 +137,8 @@ The pill-shaped 96 (000#) / 90 (1#) LED layout is arranged from top to bottom as
        ○ ○          Row 17                  ○ ○          Row 17
 ```
 
-- **000#** uses 96×0402 LEDs (larger packages, easier to hand-solder).
-- **1#** uses 90×0201 LEDs (extremely small; a microscope and precision soldering are required).
+- **000#** uses 96× 0402 LEDs (larger packages, easier to hand-solder).
+- **1#** uses 90× 0201 LEDs (extremely small; a microscope and precision soldering are required).
 
 ### Cost
 
@@ -144,7 +146,7 @@ Because these are small HDI boards, the PCB cost is **very high**, mainly due to
 
 ![Costing](PCB%20Costing.png)
 
-> *Approximately 120 EBA boards are still available (2026.09.15). If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 13 per board (~ 1.8 USD/board)**, excluding shipping.*
+> *Approximately 120 EBA boards are still available (2026.09.15). If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 14 per board (~ 1.8 USD/board)**, excluding shipping.* ![PCB](IMG_20260630_200657.jpg) ![PCB](IMG_20260630_200704.jpg)
 
 ### PCB Variants
 
@@ -153,7 +155,7 @@ Because these are small HDI boards, the PCB cost is **very high**, mainly due to
 | **EVK v1** | 22×22 mm | 0402, 64 LEDs | Deprecated |
 | **EVK v2** | 41.979×24 mm | 0201, 96 LEDs | Validation board, producible |
 | **000#** | 23.9×8.6 mm | 0402, 96 LEDs | Producible |
-| **1#** | 19.5×6.9 mm | 0201, 96 LEDs | Producible |
+| **1#** | 19.5×6.9 mm | 0201, 90 LEDs | Producible |
 | **EBA** (Embedded Board Array) | — | — | Producible |
 
 EVK v1/v2 are standard 2-layer boards for firmware development and component validation. 000# and 1# are 4-layer HDI boards reduced to capsule dimensions. EBA is a panel containing 000# and 1# boards.
@@ -169,7 +171,7 @@ Key components:
 - **MCU**: STM32C011D6Y6TR WLCSP12
 - **IMU**: BMA530 WLCSP6
 - **LED driver**: IS31FL3736 QFN (5×5 mm)
-- **LEDs**: 96×0402/0201
+- **LEDs**: 96× 0402 (000#) / 90× 0201 (1#)
 - **PMIC**: nPM1100-**CAAA-E-R7** WLCSP25
 
 ---

@@ -4,11 +4,15 @@
 
 > [ENGLISH](README.md) | [中文](README-zh-CN.md)
 
-> The project materials are still being sorted, expected to be completed by early Sep.
-
 PixPill is a tiny glowing gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
 
+<img src="pixpill.jpg" alt="PixPill in Fenbid Capsule" style="width: 78%; height: auto; align: center;">
+
+<img src="pixpills.jpg" alt="PixPills" style="width: 78%; height: auto; align: center;">
+
 Its tiny PCB dimensions (23.9×8.6 mm / 19.5×6.9 mm) are deliberately aligned with standardized size 000 (26.1×8.5 mm) and size 1 (19.4×6.9 mm) pill capsules.
+
+<img src="pixpill on hand.jpg" alt="PixPills" style="width: 65%; height: auto; align: center;">
 
 For detailed hardware design and 3D-related information, see [Hardware Design.md](Hardware/Hardware%20Design.md). For software details, see [Software Design.md](Software/Software%20Design.md).
 
@@ -33,7 +37,7 @@ For detailed hardware design and 3D-related information, see [Hardware Design.md
 | **MCU** | STM32C011D6Y6TR | Cortex-M0+ @ 48 MHz, WLCSP12 (1.7×1.42×0.6 mm, 0.35 mm pitch) |
 | **IMU** | BMA530 | 3-axis accelerometer, I²C, WLCSP6 (1.2×0.8×0.55 mm³) |
 | **LED Driver** | IS31FL3736 | 12×8 LED matrix controller, I²C paged register access, per-LED 8-bit PWM, 5×5 QFN |
-| **LEDs** | 90× 0201 or 96× 0402 | Arranged in a pill-shaped layout |
+| **LEDs** | 96× 0402 (000#) / 90× 0201 (1#) | Arranged in a pill-shaped layout |
 | **PMIC** | nPM1100 | Li-Po charger, max 400 mA LDO, with ship mode |
 | **Battery** | 08120 3.7V Li-Po | Charged via microUSB |
 | **PCB** | 4-layer 1st-order HDI | 23.9×8.6 mm / 19.5×6.9 mm |
@@ -83,8 +87,8 @@ Pre-built firmware is also provided; flash directly via STM32 CubeProgrammer or 
 
 ### Prerequisites
 
-- `arm-none-eabi-gcc` toolchain
-- GNU Make
+- `arm-none-eabi-gcc` toolchain, GNU Make
+- VSCode + EIDE
 - STM32CubeMX (v6.14+) for `.ioc` generation
 - STM32CubeProgrammer CLI for flashing
 
@@ -101,6 +105,7 @@ Pre-built firmware is also provided; flash directly via STM32 CubeProgrammer or 
 
 ### Status Indicators
 
+- **Array blinks "ERR" 6 times at boot** → IS31FL3736 detected an LED open or short circuit
 - **Back LED fast blink (100 ms) & array shows "ERR"** → nPM1100 fault (ERR pin active)
 - **Back LED breathing & array shows battery icon for 4 seconds** → USB charging plugged in
 

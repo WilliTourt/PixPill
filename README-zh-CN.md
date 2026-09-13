@@ -6,9 +6,13 @@
 
 PixPill 像素胶囊 是一颗比真实胶囊大不了多少的发光小玩意。在四层 HDI 微型 PCB 上，塞进了一颗 STM32C011 主控、一颗 BMA530 加速度计、一颗 IS31FL3736 LED 矩阵驱动芯片、96 颗微型 LED，以及一颗 nPM1100 电源管理芯片。固件跑的是一套基于物理的粒子模拟——倾斜它，沙子会倾泻、液体会流动。
 
-![PixPill in Fenbid Capsule](pixpill.jpg)
+<img src="pixpill.jpg" alt="PixPill in Fenbid Capsule" style="width: 78%; height: auto; align: center;">
+
+<img src="pixpills.jpg" alt="PixPills" style="width: 78%; height: auto; align: center;">
 
 其微小的PCB面积（23.9x8.6 mm / 19.5x6.9 mm）有意对齐了标准化的000号（26.1x8.5 mm）和1号胶囊的大小（19.4x6.9 mm）。
+
+<img src="pixpill on hand.jpg" alt="PixPills" style="width: 65%; height: auto; align: center;">
 
 欲了解详细的硬件设计和3D外壳相关，以及硬件组装指南，请查阅 [Hardware Design_zh-CN.md](Hardware/Hardware%20Design_zh-CN.md)。欲了解软件相关，请查阅 [Software Design_zh-CN.md](Software/Software%20Design_zh-CN.md)。
 
@@ -33,7 +37,7 @@ PixPill 像素胶囊 是一颗比真实胶囊大不了多少的发光小玩意�
 | **MCU** | STM32C011D6Y6TR | Cortex-M0+ @ 48 MHz, WLCSP12 (1.7x1.42x0.6 P 0.35 mm) |
 | **IMU** | BMA530 | 三轴加速度计，I²C WLCSP6 (1.2 x 0.8 x 0.55 mm³) |
 | **LED 驱动** | IS31FL3736 | 12×8 LED矩阵控制器，I²C 分页寄存器访问，每颗 LED 独立 8-bit PWM，5x5 QFN |
-| **LED** | 90× 0201 或 96x 0402 | LAYOUT 为胶囊形 |
+| **LED** | 96× 0402（000#）/ 90× 0201（1#） | LAYOUT 为胶囊形 |
 | **PMIC** | nPM1100 | 锂电充电，MAX 400 mA LDO，带船运模式 |
 | **电池** | 08120 3.7V LiPo | microUSB 充电 |
 | **PCB** | 四层一阶 HDI | 23.9x8.6 mm / 19.5x6.9 mm |
@@ -84,8 +88,8 @@ Components/
 ---
 
 ### 环境要求
-- `arm-none-eabi-gcc` 工具链
-- GNU Make
+- `arm-none-eabi-gcc` 工具链，GNU Make
+- VSCode + EIDE
 - STM32CubeMX (v6.14+) 用于 `.ioc` 生成
 - STM32CubeProgrammer CLI 用于烧录程序
 
@@ -95,12 +99,14 @@ Components/
 
 - **首次焊好电池，插入 USB** → 设备从船运模式唤醒(播放充电动画)
 
-1. **按下按钮** → 阵列短亮，播放开机动画，随即模拟开始（默认：液体模式）
+1. **按下按钮** → 阵列短亮，播放开机动画，随即开始模拟（默认：液体模式）
 2. **倾斜** → 粒子随重力流动
 3. **上下快速摇晃4次** → 切换沙粒和液体模式（为了不影响正常把玩，我把检测窗口时间设置的较短，摇晃速度必须快一点才能切换）
 4. **静止 22 秒** → 关机动画 → 进入船运模式
 
 ### 状态指示
+
+- **开机时阵列闪烁6次"ERR"** → IS31FL3736 检测到 LED 开路或短路
 - **背面LED快闪（100ms）且阵列显示"ERR"** → nPM1100 故障（ERR 引脚激活）
 - **背面LED呼吸，阵列显示电池图案4秒** → 插入了 USB 充电
 
@@ -109,6 +115,7 @@ Components/
 ## 致谢
 
 - **PCB：** 立创 EDA 专业版设计，四层 HDI 工艺制造
+
 - **模拟算法参考：**
 - Website: [Falling Sand Simulation _ Kyle W. Pfeiffer](https://www.kylepfeiffer.com/projects/4_project/)
 - Website: [Falling Sand](https://jason.today/falling-sand)

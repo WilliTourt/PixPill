@@ -36,7 +36,7 @@
 
 ## 3D Enclosure Assembly
 
-1. Complete PCB soldering, flash the firmware, and verify that the board passes testing.
+1. Complete PCB soldering, flash the firmware, and verify that the board passes testing. If **the array blinks "ERR" 6 times at boot**, the IS31FL3736 has detected an LED open or short circuit; if **the LED on the IC side blinks fast while the array shows "ERR"**, it indicates an nPM1100 fault.
 2. After soldering the battery, insert the PCB into the slot in the lower shell. The side with the longer battery recess corresponds to the battery slot; confirm the board orientation and position.
 3. Install the button retainer in its reserved position. **First apply 502 adhesive (cyanoacrylate) or another suitable adhesive to the PCB-mounted button.** Insert the PCB into the lower shell, then insert the small button part from outside the shell and press it firmly against the PCB-mounted button.
 4. Snap on the upper shell. The enclosure uses a slight interference fit.

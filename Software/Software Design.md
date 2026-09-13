@@ -2,6 +2,8 @@
 
 > Firmware architecture, simulation algorithms, gesture recognition, power management, and development guide
 
+> [ENGLISH](Software%20Design.md) | [中文](Software%20Design_zh-CN.md)
+
 ---
 
 ## Table of Contents
@@ -180,7 +182,7 @@ Target = 8 direction flips (i.e., 4 up-down shake cycles)
 
 | Animation | Description | Mechanism |
 |-----------|-------------|-----------|
-| **Boot** | "PIXPILL" scrolling text | 6-column sliding window over 42-frame bitmap, ~1.9s |
+| **Boot** | "PIXPILL" scrolling text | 6-column sliding window over 42-frame bitmap, ~2.7s |
 | **Shutdown** | Full brightness → row-by-row fade out | Rows dim from top to bottom |
 | **Charging** | Battery outline steady + breathing fill | 1.5s cycle, batch PWM updates to avoid I2C flicker |
 | **Error** | "ERR" full-screen blink | 250ms on/off, PWM set once only |

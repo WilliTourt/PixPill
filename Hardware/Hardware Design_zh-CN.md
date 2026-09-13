@@ -6,7 +6,9 @@
 
 PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验证板到最终胶囊尺寸的设计，硬件方案在极小的空间内集成了 MCU、IMU、LED 驱动、96 颗微型 LED、PMIC 和锂电池。
 
-![PixPill Model](PixPill%20000%20Model.png)
+<img src="PixPill%20000%20Model.png" alt="PixPill Model" style="width: 65%; height: auto; align: center;">
+
+<img src="Pixpill%20000%20Render.png" alt="PixPill Render" style="width: 65%; height: auto; align: center;">
 
 ---
 
@@ -42,7 +44,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
   └────────────┬──────────────┘
                │ 96× LED Matrix
      ┌─────────▼───────────┐
-     │  96× 0201/0402 LEDs │
+     │ 96× 0402 / 90× 0201 │
      │  Pill-shaped layout │
      └─────────────────────┘
 ```
@@ -120,7 +122,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 ### LED 阵列布局
 
-胶囊形状的 96(90) LED 布局，从顶部到底部排列如下图：
+胶囊形状的 96（000#）/ 90（1#）LED 布局，从顶部到底部排列如下图：
 
 ```
    000# (0402) LED:                     1# (0201) LED:
@@ -135,8 +137,8 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
        ○ ○          Row 17                  ○ ○          Row 17
 ```
 
-- **000#** 使用 96×0402 LED（更大封装，容易手工焊接）
-- **1#** 使用 90×0201 LED（极小封装，需要显微镜和精密焊接）
+- **000#** 使用 96× 0402 LED（更大封装，容易手工焊接）
+- **1#** 使用 90× 0201 LED（极小封装，需要显微镜和精密焊接）
 
 ### 成本
 
@@ -144,7 +146,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 ![Costing](PCB%20Costing.png)
 
-> *目前我仍保留有约 120 块 EBA 板子 (2026.09.15)，如果你想复刻此项目，可以通过邮箱 (willitourt@foxmail.com) 联系我获取！我将以 **13 人民币/块** 的成本价出售给你。运费自理。*
+> *目前我仍保留有约 120 块 EBA 板子 (2026.09.15)，如果你想复刻此项目，可以通过邮箱 (willitourt@foxmail.com) 联系我获取！我将以 **14 人民币/块** 接近成本的价格出售给你。运费自理。* ![PCB](IMG_20260630_200657.jpg) ![PCB](IMG_20260630_200704.jpg)
 
 
 ---
@@ -156,7 +158,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 | **EVK v1** | 22×22 mm | 0402, 64 LEDs | 已废弃 |
 | **EVK v2** | 41.979×24 mm | 0201, 96 LEDs | 验证板，可生产 |
 | **000#** | 23.9×8.6 mm | 0402, 96 LEDs | 可生产 |
-| **1#** | 19.5×6.9 mm | 0201, 96 LEDs | 可生产 |
+| **1#** | 19.5×6.9 mm | 0201, 90 LEDs | 可生产 |
 | **EBA**(Embedded Board Array) | - | - | 可生产 |
 
 EVK v1/v2 是标准 2 层板，用于固件开发和元件验证。000# 和 1# 为四层 HDI，减小到胶囊尺寸。EBA 为000#和1#的拼板。
@@ -172,7 +174,7 @@ EVK v1/v2 是标准 2 层板，用于固件开发和元件验证。000# 和 1# �
 - **MCU**：STM32C011D6Y6TR WLCSP12
 - **IMU**：BMA530 WLCSP6
 - **LED 驱动**：IS31FL3736 QFN(5x5mm)
-- **LED**：96×0402/0201
+- **LED**：96× 0402（000#）/ 90× 0201（1#）
 - **PMIC**：nPM1100-**CAAA-E-R7** WLCSP25
 
 ---
