@@ -2,6 +2,8 @@
 
 > 原理图、PCB、BOM 与壳体装配指南
 
+> [ENGLISH](Hardware%20Design.md) | [中文](Hardware%20Design_zh-CN.md)
+
 PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验证板到最终胶囊尺寸的设计，硬件方案在极小的空间内集成了 MCU、IMU、LED 驱动、96 颗微型 LED、PMIC 和锂电池。
 
 ![PixPill Model](PixPill%20000%20Model.png)
@@ -142,7 +144,7 @@ PixPill 经历了 EVK v1 → EVK v2 → 000# + 1# 的迭代过程。从 EVK 验�
 
 ![Costing](PCB%20Costing.png)
 
-*目前我仍保留有约 120 块 EBA 板子，如果你想复刻此项目，可以通过邮箱 (willitourt@foxmail.com) 联系我获取！我将以 **13 人民币/块** 的成本价出售给你。运费自理。*
+> *目前我仍保留有约 120 块 EBA 板子 (2026.09.15)，如果你想复刻此项目，可以通过邮箱 (willitourt@foxmail.com) 联系我获取！我将以 **13 人民币/块** 的成本价出售给你。运费自理。*
 
 
 ---

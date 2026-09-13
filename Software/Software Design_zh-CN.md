@@ -2,6 +2,8 @@
 
 > 固件架构、模拟算法、手势识别、电源管理与开发指南
 
+> [ENGLISH](Software%20Design.md) | [中文](Software%20Design_zh-CN.md)
+
 ---
 
 ## 目录

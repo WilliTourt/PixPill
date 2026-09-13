@@ -2,6 +2,8 @@
 
 > Schematics, PCB, BOM, and enclosure assembly guide
 
+> [ENGLISH](Hardware%20Design.md) | [中文](Hardware%20Design_zh-CN.md)
+
 PixPill went through the EVK v1 → EVK v2 → 000# + 1# iterations. From the EVK validation boards to the final capsule-sized designs, the hardware integrates an MCU, IMU, LED driver, 96 micro LEDs, PMIC, and Li-Po battery in an extremely compact space.
 
 ![PixPill Model](PixPill%20000%20Model.png)
@@ -142,7 +144,7 @@ Because these are small HDI boards, the PCB cost is **very high**, mainly due to
 
 ![Costing](PCB%20Costing.png)
 
-*Approximately 120 EBA boards are still available. If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 13 per board**, excluding shipping.*
+> *Approximately 120 EBA boards are still available (2026.09.15). If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 13 per board (~ 1.8 USD/board)**, excluding shipping.*
 
 ### PCB Variants
 

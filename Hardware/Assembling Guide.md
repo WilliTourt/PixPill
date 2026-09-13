@@ -1,5 +1,7 @@
 # PixPill PCB & Enclosure Assembly Guide
 
+> [ENGLISH](Assembling%20Guide.md) | [中文](Assembling%20Guide_zh-CN.md)
+
 ![PCB on heat pad](./IMG_20260630_221625.jpg)
 
 ## PCB Soldering
