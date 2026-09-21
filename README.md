@@ -1,14 +1,16 @@
 # 💊 PixPill
 
+![Cover](./Cover1.png)
+
 > A pill-sized LED trinket — with sand and liquid flowing inside. Shake it, tilt it, watch it flow.
 
 > [ENGLISH](README.md) | [中文](README-zh-CN.md)
 
 PixPill is a tiny glowing gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
 
-<img src="pixpill.jpg" alt="PixPill in Fenbid Capsule" style="width: 78%; height: auto; align: center;">
+<img src="pixpill.jpg" alt="PixPill in Fenbid Capsule" style="width: 65%; height: auto; align: center;">
 
-<img src="pixpills.jpg" alt="PixPills" style="width: 78%; height: auto; align: center;">
+<img src="pixpills.jpg" alt="PixPills" style="width: 65%; height: auto; align: center;">
 
 Its tiny PCB dimensions (23.9×8.6 mm / 19.5×6.9 mm) are deliberately aligned with standardized size 000 (26.1×8.5 mm) and size 1 (19.4×6.9 mm) pill capsules.
 
