@@ -8,6 +8,8 @@
 
 PixPill is a tiny glowing gadget barely larger than a real pill capsule. On a 4-layer HDI micro PCB, it packs an STM32C011 MCU, a BMA530 accelerometer, an IS31FL3736 LED matrix driver, 96× micro LEDs, and an nPM1100 PMIC. The firmware runs physics-based particle simulations — tilt it and sand pours, liquid flows.
 
+Bilibili video link：[Click here](https://www.bilibili.com/video/BV1YWhq6gEwE)
+
 <img src="pixpill.jpg" alt="PixPill in Fenbid Capsule" style="width: 65%; height: auto; align: center;">
 
 <img src="pixpills.jpg" alt="PixPills" style="width: 65%; height: auto; align: center;">
