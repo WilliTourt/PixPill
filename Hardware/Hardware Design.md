@@ -146,7 +146,7 @@ Because these are small HDI boards, the PCB cost is **very high**, mainly due to
 
 ![Costing](PCB%20Costing.png)
 
-> *Approximately 120 EBA boards are still available (2026.09.15). If you would like to reproduce this project, contact me at (willitourt@foxmail.com). I can provide them at almost the cost price of **RMB 12 per board (~ 1.7 USD/board)**, excluding shipping.* ![PCB](IMG_20260630_200657.jpg) ![PCB](IMG_20260630_200704.jpg)
+> *Approximately 120 EBA boards are still available (2026.09.15). If you would like to reproduce this project, [Bilibili shop](https://mall.bilibili.com/neul-next/detailuniversal/detail.html?page=detailuniversal_detail&itemsId=42170426&loadingShow=1&noTitleBar=1#noReffer=true&msource=merchant_share) or contact me at (willitourt@foxmail.com). I can provide them at lower the cost price of **RMB 6 per board (~ 0.85 USD/board)**, excluding shipping.* ![PCB](IMG_20260630_200657.jpg) ![PCB](IMG_20260630_200704.jpg)
 
 ### PCB Variants
 
