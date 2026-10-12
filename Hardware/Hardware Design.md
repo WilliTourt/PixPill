@@ -174,6 +174,8 @@ Key components:
 - **LEDs**: 96× 0402 (000#) / 90× 0201 (1#)
 - **PMIC**: nPM1100-**CAAA-E-R7** WLCSP25
 
+Also **[Interactive BOM](/InteractiveBOM_EBA.html)** can be used.
+
 ---
 
 ## Soldering and Assembly
