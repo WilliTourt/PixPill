@@ -1,0 +1,1 @@
+The interactive bom html file in last commit is too large for repo, so I removed it. You can use EasyEDA (LCEDA) to view it.
